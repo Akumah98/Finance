@@ -17,7 +17,7 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    View,
+    View
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
@@ -37,15 +37,23 @@ export default function AddTransactionScreen() {
 
     const [date, setDate] = useState(initialDate ? new Date(initialDate as string) : new Date());
     const [showDatePicker, setShowDatePicker] = useState(false);
-    const { user } = useAuth();
+    const { user, token } = useAuth();
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const [categories, setCategories] = useState<any[]>([]);
 
+    // Bulk Mode State
+    const [mode, setMode] = useState<'single' | 'bulk'>('single');
+    const [batchTransactions, setBatchTransactions] = useState<any[]>([]);
+
     useEffect(() => {
         const fetchCategories = async () => {
             try {
-                const response = await fetch(`${API_URL}/categories/${user.id || user._id}`);
+                const response = await fetch(`${API_URL}/categories/${user.id || user._id}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
                 const data = await response.json();
                 if (response.ok) {
                     setCategories(data);
@@ -93,7 +101,17 @@ export default function AddTransactionScreen() {
                 });
 
                 Alert.alert('Saved Offline', 'Transaction has been saved locally and will sync when you are online.', [
-                    { text: 'OK', onPress: () => router.back() }
+                    {
+                        text: 'OK',
+                        onPress: () => {
+                            setAmount('');
+                            setNote('');
+                            setSelectedCategory(null);
+                            setDate(new Date());
+                            // Use replace to avoid stacking screens if coming from dashboard
+                            router.replace('/(main)/transactions');
+                        }
+                    }
                 ]);
             } else {
                 const url = isEditing ? `${API_URL}/transactions/${id}` : `${API_URL}/transactions`;
@@ -103,6 +121,7 @@ export default function AddTransactionScreen() {
                     method,
                     headers: {
                         'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
                     },
                     body: JSON.stringify({
                         userId: user.id || user._id,
@@ -129,7 +148,17 @@ export default function AddTransactionScreen() {
                 }
 
                 Alert.alert('Success', `Transaction ${isEditing ? 'updated' : 'saved'} successfully${deleteGoalId ? ' and Goal deleted' : ''}`, [
-                    { text: 'OK', onPress: () => router.back() }
+                    {
+                        text: 'OK',
+                        onPress: () => {
+                            // Reset params to clear form
+                            setAmount('');
+                            setNote('');
+                            setSelectedCategory(null);
+                            setDate(new Date());
+                            router.replace('/(main)/transactions');
+                        }
+                    }
                 ]);
             }
         } catch (error: any) {
@@ -150,10 +179,18 @@ export default function AddTransactionScreen() {
                     try {
                         const response = await fetch(`${API_URL}/transactions/${id}`, {
                             method: 'DELETE',
+                            headers: {
+                                'Authorization': `Bearer ${token}`
+                            },
                         });
                         if (response.ok) {
                             Alert.alert('Deleted', 'Transaction deleted successfully', [
-                                { text: 'OK', onPress: () => router.back() }
+                                {
+                                    text: 'OK',
+                                    onPress: () => {
+                                        router.replace('/(main)/transactions');
+                                    }
+                                }
                             ]);
                         } else {
                             throw new Error('Failed to delete');
@@ -166,6 +203,75 @@ export default function AddTransactionScreen() {
                 }
             }
         ]);
+    };
+
+    const addToBatch = () => {
+        if (!amount || !selectedCategory) {
+            Alert.alert('Missing Fields', 'Please enter an amount and select a category.');
+            return;
+        }
+
+        const categoryName = categories.find(c => (c._id || c.id) === selectedCategory)?.name || 'Other';
+
+        const newTransaction = {
+            userId: user.id || user._id,
+            type,
+            amount: parseFloat(amount),
+            category: categoryName,
+            date, // Use the global date
+            note,
+            receiptUri
+        };
+
+        setBatchTransactions([...batchTransactions, newTransaction]);
+
+        // Reset inputs for next entry
+        setAmount('');
+        setNote('');
+        // Keep category? Maybe better to clear.
+        setSelectedCategory(null);
+    };
+
+    const removeFromBatch = (index: number) => {
+        const newBatch = [...batchTransactions];
+        newBatch.splice(index, 1);
+        setBatchTransactions(newBatch);
+    };
+
+    const saveBatch = async () => {
+        if (batchTransactions.length === 0) return;
+
+        setIsSubmitting(true);
+        try {
+            const response = await fetch(`${API_URL}/transactions/bulk`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(batchTransactions),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.message || 'Failed to save transactions');
+            }
+
+            Alert.alert('Success', `${batchTransactions.length} transactions saved successfully`, [
+                {
+                    text: 'OK',
+                    onPress: () => {
+                        setBatchTransactions([]);
+                        router.replace('/(main)/transactions');
+                    }
+                }
+            ]);
+        } catch (error: any) {
+            Alert.alert('Error', error.message);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const onChangeDate = (event: any, selectedDate?: Date) => {
@@ -205,12 +311,80 @@ export default function AddTransactionScreen() {
                             <Ionicons name="trash-outline" size={24} color={colors.danger} />
                         </TouchableOpacity>
                     ) : (
-                        <View style={{ width: 40 }} />
+                        <TouchableOpacity
+                            onPress={() => setMode(mode === 'single' ? 'bulk' : 'single')}
+                            style={{ padding: 8 }}
+                        >
+                            <Text style={{ color: colors.primary, fontWeight: '600' }}>
+                                {mode === 'single' ? 'Bulk Mode' : 'Single'}
+                            </Text>
+                        </TouchableOpacity>
                     )}
                 </View>
 
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-                    <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+                    <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+                        {mode === 'bulk' && (
+                            <View>
+                                {/* Date Picker for Bulk (Global) */}
+                                <View style={[styles.section, { marginBottom: 10 }]}>
+                                    <Text style={styles.sectionTitle}>Date (Applies to all)</Text>
+                                    <TouchableOpacity style={styles.inputRow} onPress={() => setShowDatePicker(!showDatePicker)}>
+                                        <Ionicons name="calendar" size={20} color={colors.textMuted} />
+                                        <Text style={styles.inputText}>{formatDate(date)}</Text>
+                                    </TouchableOpacity>
+                                    {showDatePicker && (
+                                        <View style={Platform.OS === 'ios' ? styles.iosDatePickerContainer : undefined}>
+                                            <DateTimePicker
+                                                testID="dateTimePicker"
+                                                value={date}
+                                                mode="date"
+                                                is24Hour={true}
+                                                onChange={onChangeDate}
+                                                display={Platform.OS === 'ios' ? "inline" : "default"}
+                                                themeVariant="dark"
+                                            />
+                                            {Platform.OS === 'ios' && (
+                                                <TouchableOpacity
+                                                    style={styles.dateDoneBtn}
+                                                    onPress={() => setShowDatePicker(false)}
+                                                >
+                                                    <Text style={styles.dateDoneText}>Done</Text>
+                                                </TouchableOpacity>
+                                            )}
+                                        </View>
+                                    )}
+                                </View>
+
+                                {/* Staged Transactions List */}
+                                {batchTransactions.length > 0 && (
+                                    <View style={{ marginBottom: 20 }}>
+                                        <Text style={[styles.sectionTitle, { marginHorizontal: 20 }]}>Staged ({batchTransactions.length})</Text>
+                                        {batchTransactions.map((item, index) => (
+                                            <View key={index} style={[styles.batchItem, { borderLeftColor: item.type === 'expense' ? colors.danger : colors.success }]}>
+                                                <MaterialCommunityIcons
+                                                    name={categories.find(c => c.name === item.category)?.icon || 'shape' as any}
+                                                    size={20}
+                                                    color={colors.text}
+                                                />
+                                                <View style={styles.batchItemContent}>
+                                                    <Text style={styles.batchItemTitle}>{item.category}</Text>
+                                                    <Text style={styles.batchItemSub}>{item.note || 'No note'}</Text>
+                                                </View>
+                                                <Text style={[styles.batchItemAmount, { color: item.type === 'expense' ? colors.danger : colors.success }]}>
+                                                    {item.type === 'income' ? '+' : ''}{item.amount}
+                                                </Text>
+                                                <TouchableOpacity onPress={() => removeFromBatch(index)} style={styles.batchDeleteBtn}>
+                                                    <Ionicons name="close-circle" size={20} color={colors.textMuted} />
+                                                </TouchableOpacity>
+                                            </View>
+                                        ))}
+                                    </View>
+                                )}
+                                <Text style={[styles.sectionTitle, { marginHorizontal: 20 }]}>Add New Entry</Text>
+                            </View>
+                        )}
+
                         {/* Type Toggle */}
                         <View style={styles.toggleContainer}>
                             <TouchableOpacity
@@ -276,28 +450,32 @@ export default function AddTransactionScreen() {
                                 />
                             </View>
 
-                            <TouchableOpacity style={styles.inputRow} onPress={() => setShowDatePicker(!showDatePicker)}>
-                                <Ionicons name="calendar" size={20} color={colors.textMuted} />
-                                <Text style={styles.inputText}>{formatDate(date)}</Text>
-                            </TouchableOpacity>
-                            {showDatePicker && (
-                                <View style={Platform.OS === 'ios' ? styles.iosDatePickerContainer : undefined}>
-                                    <DateTimePicker
-                                        testID="dateTimePicker"
-                                        value={date}
-                                        mode="date"
-                                        is24Hour={true}
-                                        onChange={onChangeDate}
-                                        display={Platform.OS === 'ios' ? "inline" : "default"}
-                                        themeVariant="dark"
-                                    />
-                                    {Platform.OS === 'ios' && (
-                                        <TouchableOpacity
-                                            style={styles.dateDoneBtn}
-                                            onPress={() => setShowDatePicker(false)}
-                                        >
-                                            <Text style={styles.dateDoneText}>Done</Text>
-                                        </TouchableOpacity>
+                            {mode === 'single' && (
+                                <View>
+                                    <TouchableOpacity style={styles.inputRow} onPress={() => setShowDatePicker(!showDatePicker)}>
+                                        <Ionicons name="calendar" size={20} color={colors.textMuted} />
+                                        <Text style={styles.inputText}>{formatDate(date)}</Text>
+                                    </TouchableOpacity>
+                                    {showDatePicker && (
+                                        <View style={Platform.OS === 'ios' ? styles.iosDatePickerContainer : undefined}>
+                                            <DateTimePicker
+                                                testID="dateTimePicker"
+                                                value={date}
+                                                mode="date"
+                                                is24Hour={true}
+                                                onChange={onChangeDate}
+                                                display={Platform.OS === 'ios' ? "inline" : "default"}
+                                                themeVariant="dark"
+                                            />
+                                            {Platform.OS === 'ios' && (
+                                                <TouchableOpacity
+                                                    style={styles.dateDoneBtn}
+                                                    onPress={() => setShowDatePicker(false)}
+                                                >
+                                                    <Text style={styles.dateDoneText}>Done</Text>
+                                                </TouchableOpacity>
+                                            )}
+                                        </View>
                                     )}
                                 </View>
                             )}
@@ -340,14 +518,48 @@ export default function AddTransactionScreen() {
 
 
                         {/* Submit Button */}
-                        <TouchableOpacity style={styles.submitButton} activeOpacity={0.8} onPress={handleSave} disabled={isSubmitting}>
-                            <LinearGradient
-                                colors={type === 'expense' ? [colors.danger, '#B91C1C'] : [colors.success, '#059669']}
-                                style={styles.submitGradient}
+                        {/* Submit Button */}
+                        {/* Buttons Container */}
+                        <View style={mode === 'bulk' && batchTransactions.length > 0 ? styles.buttonsRow : undefined}>
+                            {/* Submit / Add to Batch Button */}
+                            <TouchableOpacity
+                                style={[
+                                    styles.submitButton,
+                                    (mode === 'bulk' && batchTransactions.length > 0) && styles.submitButtonBulk
+                                ]}
+                                activeOpacity={0.8}
+                                onPress={mode === 'bulk' ? addToBatch : handleSave}
+                                disabled={isSubmitting}
                             >
-                                <Text style={styles.submitText}>{isSubmitting ? (isEditing ? 'Updating...' : 'Saving...') : (isEditing ? 'Update Transaction' : 'Save Transaction')}</Text>
-                            </LinearGradient>
-                        </TouchableOpacity>
+                                <LinearGradient
+                                    colors={type === 'expense' ? [colors.danger, '#B91C1C'] : [colors.success, '#059669']}
+                                    style={styles.submitGradient}
+                                >
+                                    <Text style={styles.submitText}>
+                                        {isSubmitting ? (isEditing ? 'Updating...' : 'Saving...') : (
+                                            mode === 'bulk' ? 'Add' : (isEditing ? 'Update Transaction' : 'Save Transaction')
+                                        )}
+                                    </Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+
+                            {/* Save Batch Button (Only in Bulk Mode and if items exist) */}
+                            {mode === 'bulk' && batchTransactions.length > 0 && (
+                                <TouchableOpacity
+                                    style={styles.saveAllButton}
+                                    activeOpacity={0.8}
+                                    onPress={saveBatch}
+                                    disabled={isSubmitting}
+                                >
+                                    <LinearGradient
+                                        colors={[colors.primary, '#4F46E5']}
+                                        style={styles.saveAllGradient}
+                                    >
+                                        <Text style={styles.saveAllText}>Save All ({batchTransactions.length})</Text>
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            )}
+                        </View>
 
                     </ScrollView>
                 </KeyboardAvoidingView>
@@ -406,7 +618,9 @@ const styles = StyleSheet.create({
     key: { width: '33.33%', height: 60, justifyContent: 'center', alignItems: 'center' },
     keyText: { color: colors.text, fontSize: 24, fontWeight: '600' },
 
-    submitButton: { marginHorizontal: 20, borderRadius: 28, overflow: 'hidden', height: 56 },
+    buttonsRow: { flexDirection: 'row', paddingHorizontal: 20, gap: 12 },
+    submitButton: { marginHorizontal: 20, borderRadius: 28, overflow: 'hidden', height: 56 }, // Original style
+    submitButtonBulk: { flex: 1, marginHorizontal: 0 }, // Modified when in row
     submitGradient: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     submitText: { color: 'white', fontSize: 18, fontWeight: '700' },
 
@@ -421,4 +635,15 @@ const styles = StyleSheet.create({
     dateDoneBtn: { alignItems: 'center', padding: 12, backgroundColor: colors.primary, borderRadius: 12, marginTop: 8 },
     dateDoneText: { color: 'white', fontWeight: '700', fontSize: 16 },
     deleteButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.glass, justifyContent: 'center', alignItems: 'center' },
+
+    batchItem: { flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: colors.glass, borderRadius: 12, marginBottom: 8, marginHorizontal: 20, borderLeftWidth: 3 },
+    batchItemContent: { flex: 1, marginLeft: 12 },
+    batchItemTitle: { color: colors.text, fontWeight: '600', fontSize: 14 },
+    batchItemSub: { color: colors.textMuted, fontSize: 12 },
+    batchItemAmount: { fontWeight: '700', fontSize: 14 },
+    batchDeleteBtn: { padding: 8 },
+
+    saveAllButton: { flex: 1, borderRadius: 28, overflow: 'hidden', height: 56 }, // Radius 28, Height 56 to match
+    saveAllGradient: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    saveAllText: { color: 'white', fontSize: 16, fontWeight: '700' },
 });

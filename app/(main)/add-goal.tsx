@@ -22,7 +22,7 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 export default function AddGoalScreen() {
     const router = useRouter();
-    const { user } = useAuth();
+    const { user, token } = useAuth();
     const params = useLocalSearchParams();
     const isEditing = !!params.id;
 
@@ -62,7 +62,10 @@ export default function AddGoalScreen() {
 
             const response = await fetch(url, {
                 method,
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify({
                     userId: user.id || user._id,
                     name,

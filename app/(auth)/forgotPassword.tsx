@@ -3,15 +3,16 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Link } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    Keyboard,
-    Platform,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    TouchableWithoutFeedback,
-    View,
+  Alert,
+  Keyboard,
+  Platform,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -20,9 +21,9 @@ const ForgotPasswordScreen = () => {
   const [email, setEmail] = useState('');
 
   const handleResetPassword = () => {
-    // Implement password reset logic here
     console.log('Reset password for:', email);
-    // Typically, you'd send an API request here
+    // Logic for sending email would go here
+    Alert.alert('Info', 'Password reset functionality is currently disabled.');
   };
 
   return (
@@ -150,13 +151,13 @@ const styles = StyleSheet.create({
     color: colors.text,
     height: Platform.select({
       ios: 56,
-      android: 50, // Reduced height for Android
+      android: 50,
     }),
     borderRadius: 16,
     paddingHorizontal: 20,
     fontSize: Platform.select({
       ios: 16,
-      android: 14, // Reduced placeholder/input text size for Android
+      android: 14,
     }),
     marginBottom: 16,
     borderWidth: 1,

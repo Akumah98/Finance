@@ -6,8 +6,8 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { Link, useFocusEffect, useRouter } from "expo-router";
-import React, { useState } from "react";
-import { Alert, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import React, { useMemo, useState } from "react";
+import { Alert, SectionList, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 // Mock Data
@@ -44,18 +44,23 @@ const TransactionItem = ({ item, onLongPress }: { item: any, onLongPress: (item:
 
 const TransactionsScreen = () => {
   const router = useRouter();
+  const { formatAmount } = useCurrency();
   const [activeFilter, setActiveFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date()); // For month/year selection
 
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const [transactions, setTransactions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchTransactions = async () => {
     try {
-      const response = await fetch(`${API_URL}/transactions/${user.id || user._id}`);
+      const response = await fetch(`${API_URL}/transactions`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       const data = await response.json();
       if (response.ok) {
         setTransactions(data);
@@ -72,6 +77,9 @@ const TransactionsScreen = () => {
     try {
       const response = await fetch(`${API_URL}/transactions/${id}`, {
         method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
       if (response.ok) {
         setTransactions(prev => prev.filter(t => (t._id || t.id) !== id));
@@ -143,20 +151,56 @@ const TransactionsScreen = () => {
   // Format selected month/year for display
   const formattedMonth = selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
-  const filteredData = transactions.filter(t => {
-    // Filter by month/year
-    const transactionDate = new Date(t.date);
-    if (transactionDate.getMonth() !== selectedDate.getMonth() ||
-      transactionDate.getFullYear() !== selectedDate.getFullYear()) {
-      return false;
-    }
+  // Filter and Group Data
+  const groupedData = useMemo(() => {
+    // 1. Filter
+    const filtered = transactions.filter(t => {
+      const transactionDate = new Date(t.date);
+      if (transactionDate.getMonth() !== selectedDate.getMonth() ||
+        transactionDate.getFullYear() !== selectedDate.getFullYear()) {
+        return false;
+      }
+      if (activeFilter === 'Income' && t.type !== 'income') return false;
+      if (activeFilter === 'Expense' && t.type !== 'expense') return false;
+      const title = t.note || t.category;
+      if (searchQuery && !title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+      return true;
+    });
 
-    if (activeFilter === 'Income' && t.type !== 'income') return false;
-    if (activeFilter === 'Expense' && t.type !== 'expense') return false;
-    const title = t.note || t.category;
-    if (searchQuery && !title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-    return true;
-  });
+    // 2. Group by Date
+    const groups: { [key: string]: { title: string, data: any[], totalIncome: number, totalExpense: number, date: Date } } = {};
+
+    filtered.forEach(t => {
+      const date = new Date(t.date);
+      const dateKey = date.toDateString(); // "Fri Jan 10 2025"
+
+      if (!groups[dateKey]) {
+        let title = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        const today = new Date();
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+
+        if (date.toDateString() === today.toDateString()) title = "Today";
+        if (date.toDateString() === yesterday.toDateString()) title = "Yesterday";
+
+        groups[dateKey] = {
+          title,
+          data: [],
+          totalIncome: 0,
+          totalExpense: 0,
+          date
+        };
+      }
+
+      groups[dateKey].data.push(t);
+      if (t.type === 'income') groups[dateKey].totalIncome += t.amount;
+      else groups[dateKey].totalExpense += t.amount;
+    });
+
+    // 3. Convert to Array and Sort
+    return Object.values(groups).sort((a, b) => b.date.getTime() - a.date.getTime());
+  }, [transactions, selectedDate, activeFilter, searchQuery]);
+
 
   return (
     <SafeAreaProvider>
@@ -203,11 +247,20 @@ const TransactionsScreen = () => {
           </View>
         </View>
 
-        {/* List */}
-        <FlatList
-          data={filteredData}
+        {/* Section List */}
+        <SectionList
+          sections={groupedData}
           keyExtractor={item => item._id || item.id}
           renderItem={({ item }) => <TransactionItem item={item} onLongPress={handleTransactionAction} />}
+          renderSectionHeader={({ section: { title, totalIncome, totalExpense } }) => (
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>{title}</Text>
+              <View style={styles.sectionTotals}>
+                {totalIncome > 0 && <Text style={styles.incomeTotal}>+{formatAmount(totalIncome)}</Text>}
+                {totalExpense > 0 && <Text style={styles.expenseTotal}>-{formatAmount(totalExpense)}</Text>}
+              </View>
+            </View>
+          )}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
@@ -215,6 +268,7 @@ const TransactionsScreen = () => {
               <Text style={styles.emptyText}>No transactions found</Text>
             </View>
           }
+          stickySectionHeadersEnabled={false}
         />
 
         {/* FAB */}
@@ -336,6 +390,33 @@ const styles = StyleSheet.create({
   listContent: {
     padding: 20,
     paddingBottom: 100, // Space for FAB
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 24,
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  sectionTotals: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  incomeTotal: {
+    color: colors.success,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  expenseTotal: {
+    color: colors.danger,
+    fontSize: 12,
+    fontWeight: '600',
   },
   transactionItem: {
     flexDirection: 'row',

@@ -69,7 +69,7 @@ export default function DashboardScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
 
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const [goals, setGoals] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [bills, setBills] = useState<any[]>([]);
@@ -97,7 +97,11 @@ export default function DashboardScreen() {
   const fetchGoals = async () => {
     if (!user) return;
     try {
-      const response = await fetch(`${API_URL}/savings-goals/${user.id || user._id}`);
+      const response = await fetch(`${API_URL}/savings-goals/${user.id || user._id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       const data = await response.json();
       if (response.ok) {
         setGoals(data);
@@ -110,7 +114,11 @@ export default function DashboardScreen() {
   const fetchTransactions = async () => {
     if (!user) return;
     try {
-      const response = await fetch(`${API_URL}/transactions/${user.id || user._id}`);
+      const response = await fetch(`${API_URL}/transactions`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       const data = await response.json();
       if (response.ok) {
         setTransactions(data);
@@ -123,7 +131,11 @@ export default function DashboardScreen() {
   const fetchBills = async () => {
     if (!user) return;
     try {
-      const response = await fetch(`${API_URL}/bills/${user.id || user._id}`);
+      const response = await fetch(`${API_URL}/bills/${user.id || user._id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       const data = await response.json();
       if (response.ok) {
         setBills(data);
@@ -136,7 +148,11 @@ export default function DashboardScreen() {
   const fetchUserStats = async () => {
     if (!user) return;
     try {
-      const response = await fetch(`${API_URL}/users/${user.id || user._id}/stats`);
+      const response = await fetch(`${API_URL}/users/${user.id || user._id}/stats`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       const data = await response.json();
       if (response.ok) {
         setDashboardData(prev => ({ ...prev, streak: data.streak || 0 }));

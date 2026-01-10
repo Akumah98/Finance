@@ -26,7 +26,7 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 export default function AddBillScreen() {
     const router = useRouter();
-    const { user } = useAuth();
+    const { user, token } = useAuth();
     const { currency } = useCurrency();
     const { isOffline, addToQueue } = useOffline();
     const { id, initialName, initialAmount, initialFrequency, initialDate, initialCategory } = useLocalSearchParams();
@@ -47,7 +47,11 @@ export default function AddBillScreen() {
     useEffect(() => {
         const fetchCategories = async () => {
             try {
-                const response = await fetch(`${API_URL}/categories/${user.id || user._id}`);
+                const response = await fetch(`${API_URL}/categories/${user.id || user._id}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
                 const data = await response.json();
                 if (response.ok) {
                     setCategories(data);
@@ -98,7 +102,10 @@ export default function AddBillScreen() {
 
                 const response = await fetch(url, {
                     method,
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
                     body: JSON.stringify({
                         userId: user.id || user._id,
                         name,
@@ -131,7 +138,10 @@ export default function AddBillScreen() {
         try {
             const response = await fetch(`${API_URL}/bills/${id}`, {
                 method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify({ reason: deleteReason }),
             });
             if (response.ok) {

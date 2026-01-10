@@ -30,19 +30,57 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const router = useRouter();
     const segments = useSegments();
 
-    // Check for stored token on startup
+    // Check for stored token on startup and sync with backend
     useEffect(() => {
         const loadUser = async () => {
             try {
                 // SecureStore for token
                 const storedToken = await SecureStore.getItemAsync('userToken');
-                // We can keep user data in AsyncStorage or SecureStore. 
-                // For strict security, let's put it in SecureStore too, though it has size limits.
                 const storedUser = await SecureStore.getItemAsync('userData');
 
-                if (storedToken && storedUser) {
-                    setToken(storedToken);
-                    setUser(JSON.parse(storedUser));
+                if (storedToken) {
+                    // 1. Optimistically set state from storage first (optional, prevents flash)
+                    // setToken(storedToken);
+                    // if (storedUser) setUser(JSON.parse(storedUser));
+
+                    // 2. Verify with backend
+                    try {
+                        const { API_URL } = require('@/constants/config'); // Dynamic import to avoid cycles if any
+                        const response = await fetch(`${API_URL}/users/me`, {
+                            headers: {
+                                Authorization: `Bearer ${storedToken}`,
+                            },
+                        });
+
+                        if (response.ok) {
+                            const userData = await response.json();
+                            setToken(storedToken);
+                            setUser(userData);
+                            // Update stored user data with fresh data
+                            await SecureStore.setItemAsync('userData', JSON.stringify(userData));
+                        } else {
+                            if (response.status === 401 || response.status === 404) {
+                                // Token invalid or user deleted
+                                console.log('Token invalid or user not found, logging out');
+                                await logout();
+                            } else {
+                                // Server error or something else, fall back to storage if available
+                                // This allows offline usage if the token was valid before
+                                console.log('Server error verifying user, falling back to local storage');
+                                if (storedUser) {
+                                    setToken(storedToken);
+                                    setUser(JSON.parse(storedUser));
+                                }
+                            }
+                        }
+                    } catch (networkError) {
+                        console.log('Network error syncing user, falling back to local storage', networkError);
+                        // Offline fallback
+                        if (storedUser) {
+                            setToken(storedToken);
+                            setUser(JSON.parse(storedUser));
+                        }
+                    }
                 }
             } catch (e) {
                 console.log('Failed to load user', e);

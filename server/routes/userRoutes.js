@@ -2,9 +2,29 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const { getTierName, getTierEmoji, calculateLevel, getProgressToNextLevel } = require('../utils/achievementLevels');
+const { protect } = require('../middleware/authMiddleware');
+
+// Apply protection to all routes
+router.use(protect);
+
+// Get current user profile (useful for app startup sync)
+router.get('/me', async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id).select('-password');
+        if (!user) return res.status(404).json({ message: 'User not found' });
+        res.json(user);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
 
 // Get user stats (streak and achievements with levels)
 router.get('/:userId/stats', async (req, res) => {
+    // Ensure user can only view their own stats
+    if (req.params.userId !== req.user.id) {
+        return res.status(401).json({ message: 'Not authorized' });
+    }
+
     try {
         const user = await User.findById(req.params.userId).select('streak lastActivityDate achievements');
         if (!user) return res.status(404).json({ message: 'User not found' });
@@ -52,6 +72,11 @@ router.get('/:userId/stats', async (req, res) => {
 
 // Update user stats
 router.patch('/:userId/stats', async (req, res) => {
+    // Ensure user can only update their own stats
+    if (req.params.userId !== req.user.id) {
+        return res.status(401).json({ message: 'Not authorized' });
+    }
+
     const { streak, lastActivityDate, achievements } = req.body;
     try {
         const updateData = {};
@@ -85,6 +110,11 @@ router.patch('/:userId/stats', async (req, res) => {
 
 // Update user profile (name, email)
 router.patch('/:userId/profile', async (req, res) => {
+    // Ensure user can only update their own profile
+    if (req.params.userId !== req.user.id) {
+        return res.status(401).json({ message: 'Not authorized' });
+    }
+
     const { userName, email } = req.body;
     try {
         const updateData = {};

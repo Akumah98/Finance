@@ -106,4 +106,6 @@ router.post('/login', async (req, res) => {
     }
 });
 
+// Routes for forgot password, verify otp and reset password have been removed.
+
 module.exports = router;
