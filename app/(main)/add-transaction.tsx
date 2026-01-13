@@ -5,11 +5,10 @@ import { useOffline } from "@/context/OfflineContext";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { LinearGradient } from "expo-linear-gradient";
-import { Link, useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
     Alert,
-    Image,
     KeyboardAvoidingView,
     Platform,
     ScrollView,
@@ -25,7 +24,7 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 export default function AddTransactionScreen() {
     const router = useRouter();
-    const { receiptUri, id, initialType, initialAmount, initialCategory, initialDate, initialNote, deleteGoalId } = useLocalSearchParams();
+    const { id, initialType, initialAmount, initialCategory, initialDate, initialNote, deleteGoalId } = useLocalSearchParams();
     const isEditing = !!id;
     const { isOffline, addToQueue } = useOffline();
 
@@ -96,8 +95,7 @@ export default function AddTransactionScreen() {
                     amount: parseFloat(amount),
                     category: categories.find(c => (c._id || c.id) === selectedCategory)?.name || 'Other',
                     date,
-                    note,
-                    receiptUri
+                    note
                 });
 
                 Alert.alert('Saved Offline', 'Transaction has been saved locally and will sync when you are online.', [
@@ -129,8 +127,7 @@ export default function AddTransactionScreen() {
                         amount: parseFloat(amount),
                         category: categories.find(c => (c._id || c.id) === selectedCategory)?.name || 'Other',
                         date,
-                        note,
-                        receiptUri
+                        note
                     }),
                 });
 
@@ -219,8 +216,7 @@ export default function AddTransactionScreen() {
             amount: parseFloat(amount),
             category: categoryName,
             date, // Use the global date
-            note,
-            receiptUri
+            note
         };
 
         setBatchTransactions([...batchTransactions, newTransaction]);
@@ -489,30 +485,6 @@ export default function AddTransactionScreen() {
                                     onChangeText={setNote}
                                 />
                             </View>
-
-                            {receiptUri ? (
-                                <View style={styles.receiptPreview}>
-                                    <Image source={{ uri: receiptUri as string }} style={styles.receiptImage} />
-                                    <View style={styles.receiptInfo}>
-                                        <Text style={styles.receiptText}>Receipt Attached</Text>
-                                        <Link href="/(main)/scan" asChild>
-                                            <TouchableOpacity>
-                                                <Text style={styles.retakeLink}>Retake</Text>
-                                            </TouchableOpacity>
-                                        </Link>
-                                    </View>
-                                    <TouchableOpacity onPress={() => router.setParams({ receiptUri: '' })} style={styles.removeReceiptBtn}>
-                                        <Ionicons name="close-circle" size={24} color={colors.textMuted} />
-                                    </TouchableOpacity>
-                                </View>
-                            ) : (
-                                <Link href="/(main)/scan" asChild>
-                                    <TouchableOpacity style={styles.scanButton}>
-                                        <Ionicons name="camera" size={20} color="white" />
-                                        <Text style={styles.scanText}>Scan Receipt</Text>
-                                    </TouchableOpacity>
-                                </Link>
-                            )}
                         </View>
 
 
@@ -611,8 +583,7 @@ const styles = StyleSheet.create({
     inputText: { color: colors.text, fontSize: 16 },
     textInput: { flex: 1, color: colors.text, fontSize: 16 },
 
-    scanButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, borderWidth: 1, borderColor: colors.primary, borderRadius: 16, borderStyle: 'dashed', gap: 8 },
-    scanText: { color: 'white', fontWeight: '600' },
+
 
     keypad: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 20, marginBottom: 20 },
     key: { width: '33.33%', height: 60, justifyContent: 'center', alignItems: 'center' },
@@ -624,12 +595,7 @@ const styles = StyleSheet.create({
     submitGradient: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     submitText: { color: 'white', fontSize: 18, fontWeight: '700' },
 
-    receiptPreview: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.glass, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: colors.primary + '50' },
-    receiptImage: { width: 48, height: 48, borderRadius: 8, backgroundColor: '#000' },
-    receiptInfo: { flex: 1, marginLeft: 12 },
-    receiptText: { color: colors.text, fontWeight: '600', fontSize: 14 },
-    retakeLink: { color: colors.primary, fontSize: 12, marginTop: 2, fontWeight: '500' },
-    removeReceiptBtn: { padding: 4 },
+
 
     iosDatePickerContainer: { backgroundColor: colors.glass, borderRadius: 16, marginBottom: 12, padding: 10, overflow: 'hidden' },
     dateDoneBtn: { alignItems: 'center', padding: 12, backgroundColor: colors.primary, borderRadius: 12, marginTop: 8 },

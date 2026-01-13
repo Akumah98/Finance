@@ -148,6 +148,29 @@ const TransactionsScreen = () => {
     setSelectedDate(newDate);
   };
 
+  // Calculate Month Stats
+  const monthStats = useMemo(() => {
+    const monthTransactions = transactions.filter(t => {
+      const tDate = new Date(t.date);
+      return tDate.getMonth() === selectedDate.getMonth() &&
+        tDate.getFullYear() === selectedDate.getFullYear();
+    });
+
+    const income = monthTransactions
+      .filter(t => t.type === 'income')
+      .reduce((acc, t) => acc + parseFloat(t.amount), 0);
+
+    const expense = monthTransactions
+      .filter(t => t.type === 'expense')
+      .reduce((acc, t) => acc + parseFloat(t.amount), 0);
+
+    return {
+      income,
+      expense,
+      net: income - expense
+    };
+  }, [transactions, selectedDate]);
+
   // Format selected month/year for display
   const formattedMonth = selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
@@ -193,8 +216,8 @@ const TransactionsScreen = () => {
       }
 
       groups[dateKey].data.push(t);
-      if (t.type === 'income') groups[dateKey].totalIncome += t.amount;
-      else groups[dateKey].totalExpense += t.amount;
+      if (t.type === 'income') groups[dateKey].totalIncome += parseFloat(t.amount);
+      else groups[dateKey].totalExpense += parseFloat(t.amount);
     });
 
     // 3. Convert to Array and Sort
@@ -244,6 +267,24 @@ const TransactionsScreen = () => {
             {['All', 'Expense', 'Income'].map(tab => (
               <FilterTab key={tab} label={tab} active={activeFilter === tab} onPress={() => setActiveFilter(tab)} />
             ))}
+          </View>
+
+          {/* Monthly Totals Display */}
+          <View style={styles.statsContainer}>
+            <Text style={styles.statsLabel}>
+              {activeFilter === 'All' ? 'Net for ' + selectedDate.toLocaleString('default', { month: 'short' }) :
+                activeFilter === 'Income' ? 'Total Income' : 'Total Expenses'}
+            </Text>
+            <Text style={[
+              styles.statsValue,
+              activeFilter === 'Income' ? { color: colors.success } :
+                activeFilter === 'Expense' ? { color: colors.danger } :
+                  { color: monthStats.net >= 0 ? colors.success : colors.text }
+            ]}>
+              {activeFilter === 'All' ? (monthStats.net > 0 ? '+' : '') + formatAmount(monthStats.net) :
+                activeFilter === 'Income' ? '+' + formatAmount(monthStats.income) :
+                  '-' + formatAmount(monthStats.expense)}
+            </Text>
           </View>
         </View>
 
@@ -345,6 +386,25 @@ const styles = StyleSheet.create({
   filterSection: {
     paddingHorizontal: 20,
     marginBottom: 10,
+  },
+  statsContainer: {
+    marginTop: 16,
+    alignItems: 'center',
+    paddingVertical: 12,
+    backgroundColor: colors.glass,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  statsLabel: {
+    color: colors.textMuted,
+    fontSize: 14,
+    marginBottom: 4,
+    fontWeight: '500',
+  },
+  statsValue: {
+    fontSize: 24,
+    fontWeight: '800',
   },
   searchContainer: {
     flexDirection: 'row',

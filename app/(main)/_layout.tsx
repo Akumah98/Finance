@@ -113,7 +113,7 @@ export default function MainTabLayout() {
       <Tabs.Screen name="add-transaction" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="add-bill" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="add-goal" options={{ href: null, tabBarStyle: { display: 'none' } }} />
-      <Tabs.Screen name="scan" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+
       <Tabs.Screen name="groups" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="group-detail" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="create-group" options={{ href: null, tabBarStyle: { display: 'none' } }} />
