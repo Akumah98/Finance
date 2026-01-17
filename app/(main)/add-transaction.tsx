@@ -2,6 +2,7 @@ import { colors } from "@/constants/colors";
 import { API_URL } from "@/constants/config";
 import { useAuth } from "@/context/AuthContext";
 import { useOffline } from "@/context/OfflineContext";
+import { formatAmount as formatInputAmount, parseAmount } from "@/utils/inputValidation";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { LinearGradient } from "expo-linear-gradient";
@@ -29,7 +30,7 @@ export default function AddTransactionScreen() {
     const { isOffline, addToQueue } = useOffline();
 
     const [type, setType] = useState<'expense' | 'income'>((initialType as 'expense' | 'income') || 'expense');
-    const [amount, setAmount] = useState((initialAmount as string) || '');
+    const [amount, setAmount] = useState(initialAmount ? formatInputAmount(initialAmount as string) : '');
     const [note, setNote] = useState((initialNote as string) || '');
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     // category will be set after fetching categories to match the name
@@ -45,6 +46,14 @@ export default function AddTransactionScreen() {
     const [mode, setMode] = useState<'single' | 'bulk'>('single');
     const [batchTransactions, setBatchTransactions] = useState<any[]>([]);
 
+    // Sync state with params when they change (e.g. navigating from "Edit")
+    useEffect(() => {
+        if (initialType) setType(initialType as 'expense' | 'income');
+        if (initialAmount) setAmount(formatInputAmount(initialAmount as string));
+        if (initialDate) setDate(new Date(initialDate as string));
+        if (initialNote) setNote(initialNote as string);
+    }, [id, initialType, initialAmount, initialDate, initialNote]);
+
     useEffect(() => {
         const fetchCategories = async () => {
             try {
@@ -56,15 +65,6 @@ export default function AddTransactionScreen() {
                 const data = await response.json();
                 if (response.ok) {
                     setCategories(data);
-                    // If editing, find the matching category ID
-                    if (initialCategory) {
-                        const cat = data.find((c: any) => c.name === initialCategory && c.type === (initialType || 'expense'));
-                        if (cat) setSelectedCategory(cat._id || cat.id);
-                        else {
-                            // If custom category not found (maybe deleted), or 'Other'
-                            // We might just leave it null or select 'Other'
-                        }
-                    }
                 }
             } catch (error) {
                 Alert.alert('Error', 'Failed to fetch categories');
@@ -73,6 +73,14 @@ export default function AddTransactionScreen() {
 
         if (user) fetchCategories();
     }, [user]);
+
+    // Set selected category once categories are loaded and if initialCategory corresponds
+    useEffect(() => {
+        if (initialCategory && categories.length > 0) {
+            const cat = categories.find((c: any) => c.name === initialCategory && c.type === (initialType || 'expense'));
+            if (cat) setSelectedCategory(cat._id || cat.id);
+        }
+    }, [categories, initialCategory, initialType]);
 
     const handleSave = async () => {
         if (!amount || !selectedCategory) {
@@ -124,7 +132,7 @@ export default function AddTransactionScreen() {
                     body: JSON.stringify({
                         userId: user.id || user._id,
                         type,
-                        amount: parseFloat(amount),
+                        amount: parseFloat(parseAmount(amount)),
                         category: categories.find(c => (c._id || c.id) === selectedCategory)?.name || 'Other',
                         date,
                         note
@@ -437,10 +445,7 @@ export default function AddTransactionScreen() {
                                     style={styles.textInput}
                                     value={amount}
                                     onChangeText={(text) => {
-                                        // Only allow numeric input with one decimal point
-                                        if (/^\d*\.?\d*$/.test(text)) {
-                                            setAmount(text);
-                                        }
+                                        setAmount(formatInputAmount(text));
                                     }}
                                     keyboardType="numeric"
                                 />

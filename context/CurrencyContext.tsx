@@ -58,25 +58,16 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
 
     const formatAmount = (amount: number) => {
-        // XAF typically doesn't use decimals for day-to-day amounts, but we can keep it standard or conditionally remove them.
-        // For XAF, usually 0 fraction digits. For others, 2.
         const fractionDigits = currency.code === 'XAF' ? 0 : 2;
+        const fixed = Math.abs(amount).toFixed(fractionDigits);
+        const [intPart, decPart] = fixed.split('.');
+        const intFormatted = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        const formattedNumber = decPart ? `${intFormatted}.${decPart}` : intFormatted;
 
-        return new Intl.NumberFormat(currency.locale, {
-            style: 'currency',
-            currency: currency.code,
-            minimumFractionDigits: fractionDigits,
-            maximumFractionDigits: fractionDigits,
-        }).format(amount).replace('XAF', 'FCFA'); // Start with standard currency formatting
-        // Note: Intl might format XAF as "XAF 1,000" or similar. We can enforce specific symbol replacement if needed.
-        // Specifically for XAF, it's often "1 000 FCFA" or "FCFA 1,000".
-
-        // Custom simple approach to ensure Symbol is used exactly as desired if Intl is tricky on hermes/android sometimes:
-        /*
-        const formattedNum = amount.toFixed(fractionDigits).replace(/\B(?=(\d{3})+(?!\d))/g, " "); // space separator
-        if (currency.code === 'XAF') return `${formattedNum} ${currency.symbol}`;
-        return `${currency.symbol}${formattedNum}`;
-        */
+        if (currency.code === 'XAF') {
+            return `${formattedNumber} ${currency.symbol}`;
+        }
+        return `${currency.symbol}${formattedNumber}`;
     };
 
     return (

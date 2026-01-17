@@ -281,7 +281,7 @@ const TransactionsScreen = () => {
                 activeFilter === 'Expense' ? { color: colors.danger } :
                   { color: monthStats.net >= 0 ? colors.success : colors.text }
             ]}>
-              {activeFilter === 'All' ? (monthStats.net > 0 ? '+' : '') + formatAmount(monthStats.net) :
+              {activeFilter === 'All' ? (monthStats.net > 0 ? '+' : monthStats.net < 0 ? '-' : '') + formatAmount(monthStats.net) :
                 activeFilter === 'Income' ? '+' + formatAmount(monthStats.income) :
                   '-' + formatAmount(monthStats.expense)}
             </Text>

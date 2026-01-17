@@ -3,6 +3,7 @@ import { API_URL } from "@/constants/config";
 import { useAuth } from "@/context/AuthContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import { useOffline } from "@/context/OfflineContext";
+import { formatAmount as formatInputAmount, parseAmount } from "@/utils/inputValidation";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { BlurView } from "expo-blur";
@@ -33,7 +34,7 @@ export default function AddBillScreen() {
     const isEditing = !!id;
 
     const [name, setName] = useState((initialName as string) || '');
-    const [amount, setAmount] = useState((initialAmount as string) || '');
+    const [amount, setAmount] = useState(initialAmount ? formatInputAmount(initialAmount as string) : '');
     const [frequency, setFrequency] = useState((initialFrequency as string) || 'Monthly');
     const [date, setDate] = useState(initialDate ? new Date(initialDate as string) : new Date());
     const [reason, setReason] = useState('');
@@ -85,7 +86,7 @@ export default function AddBillScreen() {
                 await addToQueue('ADD_BILL', {
                     userId: user.id || user._id,
                     name,
-                    amount: parseFloat(amount),
+                    amount: parseFloat(parseAmount(amount)),
                     frequency,
                     dueDate: date,
                     category: categories.find(c => (c._id || c.id) === selectedCategory)?.name || 'Other',
@@ -109,7 +110,7 @@ export default function AddBillScreen() {
                     body: JSON.stringify({
                         userId: user.id || user._id,
                         name,
-                        amount: parseFloat(amount),
+                        amount: parseFloat(parseAmount(amount)),
                         frequency,
                         dueDate: date,
                         category: categories.find(c => (c._id || c.id) === selectedCategory)?.name || 'Other',
@@ -247,7 +248,7 @@ export default function AddBillScreen() {
                                     placeholderTextColor={colors.textMuted}
                                     value={amount}
                                     onChangeText={(text) => {
-                                        if (/^\d*\.?\d*$/.test(text)) setAmount(text);
+                                        setAmount(formatInputAmount(text));
                                     }}
                                     keyboardType="numeric"
                                 />

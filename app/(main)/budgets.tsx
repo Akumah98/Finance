@@ -1,5 +1,7 @@
 import { API_URL } from "@/constants/config";
 import { useAuth } from "@/context/AuthContext";
+import { useCurrency } from "@/context/CurrencyContext";
+import { formatAmount as formatInputAmount, parseAmount } from "@/utils/inputValidation";
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -53,6 +55,7 @@ const COMMON_CATEGORIES = [
 const BudgetsScreen = () => {
     const router = useRouter();
     const { user } = useAuth();
+    const { currency, formatAmount } = useCurrency();
     const [budgets, setBudgets] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [modalVisible, setModalVisible] = useState(false);
@@ -90,7 +93,7 @@ const BudgetsScreen = () => {
         const budgetData = {
             userId: user.id || user._id,
             category: category.trim(),
-            amount: parseFloat(amount),
+            amount: parseFloat(parseAmount(amount)),
             period: "monthly",
         };
 
@@ -154,7 +157,7 @@ const BudgetsScreen = () => {
     const openEditModal = (budget: any) => {
         setSelectedBudget(budget);
         setCategory(budget.category);
-        setAmount(budget.amount.toString());
+        setAmount(formatInputAmount(budget.amount.toString()));
         setModalVisible(true);
     };
 
@@ -178,7 +181,7 @@ const BudgetsScreen = () => {
                 <Text style={styles.budgetCategory}>{item.category}</Text>
                 <Text style={styles.budgetPeriod}>Monthly Budget</Text>
             </View>
-            <Text style={styles.budgetAmount}>${item.amount.toFixed(2)}</Text>
+            <Text style={styles.budgetAmount}>{formatAmount(item.amount)}</Text>
             <View style={styles.budgetActions}>
                 <TouchableOpacity onPress={() => openEditModal(item)} style={styles.actionButton}>
                     <Ionicons name="create-outline" size={20} color={colors.textSecondary} />
@@ -298,13 +301,13 @@ const BudgetsScreen = () => {
 
                                         {/* Amount Input */}
                                         <View style={styles.inputGroup}>
-                                            <Text style={styles.label}>Monthly Amount ($)</Text>
+                                            <Text style={styles.label}>Monthly Amount ({currency.symbol})</Text>
                                             <TextInput
                                                 style={styles.input}
                                                 placeholder="Enter amount"
                                                 placeholderTextColor={colors.textMuted}
                                                 value={amount}
-                                                onChangeText={setAmount}
+                                                onChangeText={(text) => setAmount(formatInputAmount(text))}
                                                 keyboardType="numeric"
                                                 returnKeyType="done"
                                             />

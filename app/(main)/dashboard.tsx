@@ -2,6 +2,7 @@
 import { API_URL } from "@/constants/config";
 import { useAuth } from "@/context/AuthContext";
 import { calculateLevel, getProgressToNextLevel, getTierEmoji, getTierName } from '@/utils/achievementLevels';
+import { formatAmount as formatInputAmount, parseAmount } from "@/utils/inputValidation";
 import { FontAwesome5, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -322,7 +323,7 @@ export default function DashboardScreen() {
       const response = await fetch(`${API_URL}/savings-goals/${selectedGoal._id || selectedGoal.id}/add-funds`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: parseFloat(addAmount) })
+        body: JSON.stringify({ amount: parseFloat(parseAmount(addAmount)) })
       });
       if (response.ok) {
         fetchGoals(); // Refresh goals
@@ -358,14 +359,14 @@ export default function DashboardScreen() {
   ];
 
   const insights = [
-    { title: "This Week", value: "$842", change: "+12%", trend: "up" },
-    { title: "Dining Alert", value: "$238", change: "+38%", trend: "alert" },
-    { title: "30-Day Forecast", value: "+$3,240", change: "Healthy", trend: "good" },
+    { title: "This Week", value: formatAmount(842), change: "+12%", trend: "up" },
+    { title: "Dining Alert", value: formatAmount(238), change: "+38%", trend: "alert" },
+    { title: "30-Day Forecast", value: "+" + formatAmount(3240), change: "Healthy", trend: "good" },
   ];
 
   const recommendations = [
-    "Reduce dining spend by $120 this month",
-    "Cancel 2 unused subscriptions → Save $68/mo",
+    `Reduce dining spend by ${formatAmount(120)} this month`,
+    `Cancel 2 unused subscriptions → Save ${formatAmount(68)}/mo`,
   ];
 
   const upcomingBills = bills
@@ -900,7 +901,7 @@ export default function DashboardScreen() {
                   placeholderTextColor={colors.textMuted}
                   keyboardType="numeric"
                   value={addAmount}
-                  onChangeText={setAddAmount}
+                  onChangeText={(text) => setAddAmount(formatInputAmount(text))}
                   autoFocus
                 />
               </View>

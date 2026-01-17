@@ -1,4 +1,6 @@
 import { colors } from "@/constants/colors";
+import { useCurrency } from "@/context/CurrencyContext";
+import { formatAmount as formatInputAmount } from "@/utils/inputValidation";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -16,7 +18,9 @@ const mockGroupExpenses = [
 export default function GroupDetailScreen() {
     const router = useRouter();
     const { id } = useLocalSearchParams();
+    const { currency, formatAmount } = useCurrency();
     const [settleModalVisible, setSettleModalVisible] = useState(false);
+    const [amount, setAmount] = useState('');
 
     return (
         <SafeAreaProvider>
@@ -40,8 +44,8 @@ export default function GroupDetailScreen() {
                 {/* Balances Summary */}
                 <View style={styles.balancedCard}>
                     <Text style={styles.balanceTitle}>Your Balance</Text>
-                    <Text style={styles.balanceAmountPositive}>+ $150.00</Text>
-                    <Text style={styles.balanceSub}>You get back $150.00 in total</Text>
+                    <Text style={styles.balanceAmountPositive}>+{formatAmount(150)}</Text>
+                    <Text style={styles.balanceSub}>You get back {formatAmount(150)} in total</Text>
 
                     <TouchableOpacity style={styles.settleBtn} onPress={() => setSettleModalVisible(true)}>
                         <Text style={styles.settleBtnText}>Settle Up</Text>
@@ -68,7 +72,7 @@ export default function GroupDetailScreen() {
                                 </View>
                                 <View style={{ flex: 1 }}>
                                     <Text style={styles.expenseTitle}>{item.title}</Text>
-                                    <Text style={styles.expenseSub}>{item.payer} paid ${item.amount}</Text>
+                                    <Text style={styles.expenseSub}>{item.payer} paid {formatAmount(item.amount)}</Text>
                                 </View>
                                 <Text style={styles.expenseDate}>{item.date}</Text>
                             </View>
@@ -98,13 +102,15 @@ export default function GroupDetailScreen() {
                             </View>
 
                             <View style={styles.amountInputContainer}>
-                                <Text style={styles.currency}>$</Text>
+                                <Text style={styles.currency}>{currency.symbol}</Text>
                                 <TextInput
                                     style={styles.amountInput}
                                     placeholder="0.00"
                                     placeholderTextColor={colors.textMuted}
                                     keyboardType="numeric"
                                     autoFocus
+                                    value={amount}
+                                    onChangeText={(text) => setAmount(formatInputAmount(text))}
                                 />
                             </View>
 

@@ -1,4 +1,5 @@
 import { colors } from "@/constants/colors";
+import { useCurrency } from "@/context/CurrencyContext";
 import { FontAwesome5, Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Link, useRouter } from "expo-router";
@@ -14,6 +15,7 @@ const mockGroups = [
 
 export default function GroupsScreen() {
     const router = useRouter();
+    const { formatAmount } = useCurrency();
 
     const renderGroup = ({ item }: { item: any }) => (
         <Link href={{ pathname: '/(main)/group-detail', params: { id: item.id } }} asChild>
@@ -26,8 +28,8 @@ export default function GroupsScreen() {
                     <Text style={styles.members}>{item.members} members</Text>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
-                    {item.owed > 0 && <Text style={{ color: colors.success, fontWeight: '700' }}>Get ${item.owed}</Text>}
-                    {item.owe > 0 && <Text style={{ color: colors.danger, fontWeight: '700' }}>Owe ${item.owe}</Text>}
+                    {item.owed > 0 && <Text style={{ color: colors.success, fontWeight: '700' }}>Get {formatAmount(item.owed)}</Text>}
+                    {item.owe > 0 && <Text style={{ color: colors.danger, fontWeight: '700' }}>Owe {formatAmount(item.owe)}</Text>}
                     {item.owed === 0 && item.owe === 0 && <Text style={{ color: colors.textMuted }}>Settled</Text>}
                 </View>
                 <Ionicons name="chevron-forward" size={16} color={colors.textMuted} style={{ marginLeft: 8 }} />
@@ -61,12 +63,12 @@ export default function GroupsScreen() {
                         <View style={styles.summaryContainer}>
                             <View style={styles.summaryBox}>
                                 <Text style={styles.summaryLabel}>You owe</Text>
-                                <Text style={[styles.summaryValue, { color: colors.danger }]}>$45.00</Text>
+                                <Text style={[styles.summaryValue, { color: colors.danger }]}>{formatAmount(45)}</Text>
                             </View>
                             <View style={styles.divider} />
                             <View style={styles.summaryBox}>
                                 <Text style={styles.summaryLabel}>You are owed</Text>
-                                <Text style={[styles.summaryValue, { color: colors.success }]}>$150.00</Text>
+                                <Text style={[styles.summaryValue, { color: colors.success }]}>{formatAmount(150)}</Text>
                             </View>
                         </View>
                     }

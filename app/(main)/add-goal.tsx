@@ -1,6 +1,7 @@
 import { colors } from "@/constants/colors";
 import { API_URL } from "@/constants/config";
 import { useAuth } from "@/context/AuthContext";
+import { formatAmount, parseAmount } from "@/utils/inputValidation";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { LinearGradient } from "expo-linear-gradient";
@@ -27,7 +28,7 @@ export default function AddGoalScreen() {
     const isEditing = !!params.id;
 
     const [name, setName] = useState(params.name as string || '');
-    const [target, setTarget] = useState(params.targetAmount ? String(params.targetAmount) : '');
+    const [target, setTarget] = useState(params.targetAmount ? formatAmount(String(params.targetAmount)) : '');
     const [icon, setIcon] = useState(params.icon as string || 'star');
     const [date, setDate] = useState(params.deadline ? new Date(params.deadline as string) : new Date());
     const [showDatePicker, setShowDatePicker] = useState(false);
@@ -69,7 +70,7 @@ export default function AddGoalScreen() {
                 body: JSON.stringify({
                     userId: user.id || user._id,
                     name,
-                    targetAmount: parseFloat(target),
+                    targetAmount: parseFloat(parseAmount(target)),
                     deadline: date,
                     icon,
                     color: colors.accent // Default color for now
@@ -146,7 +147,7 @@ export default function AddGoalScreen() {
                                     placeholderTextColor={colors.textMuted}
                                     value={target}
                                     onChangeText={(text) => {
-                                        if (/^\d*\.?\d*$/.test(text)) setTarget(text);
+                                        setTarget(formatAmount(text));
                                     }}
                                     keyboardType="numeric"
                                 />

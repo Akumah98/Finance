@@ -2,6 +2,7 @@
 import { API_URL } from "@/constants/config";
 import { useAuth } from "@/context/AuthContext";
 import { useCurrency } from "@/context/CurrencyContext";
+import { formatAmount as formatInputAmount, parseAmount } from "@/utils/inputValidation";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -72,7 +73,7 @@ export default function GoalsScreen() {
             const response = await fetch(`${API_URL}/savings-goals/${selectedGoal._id || selectedGoal.id}/add-funds`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ amount: parseFloat(addAmount) })
+                body: JSON.stringify({ amount: parseFloat(parseAmount(addAmount)) })
             });
             if (response.ok) {
                 fetchGoals();
@@ -258,7 +259,7 @@ export default function GoalsScreen() {
                                     placeholderTextColor={colors.textMuted}
                                     keyboardType="numeric"
                                     value={addAmount}
-                                    onChangeText={setAddAmount}
+                                    onChangeText={(text) => setAddAmount(formatInputAmount(text))}
                                     autoFocus
                                 />
                             </View>
