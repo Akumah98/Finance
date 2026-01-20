@@ -41,9 +41,12 @@ router.post('/', async (req, res) => {
 // Update a transaction
 router.put('/:id', async (req, res) => {
     try {
+        console.log('UPDATE transaction called:', { id: req.params.id, body: req.body });
+
         const transaction = await Transaction.findById(req.params.id);
 
         if (!transaction) {
+            console.log('Transaction not found:', req.params.id);
             return res.status(404).json({ message: 'Transaction not found' });
         }
 
@@ -57,8 +60,10 @@ router.put('/:id', async (req, res) => {
             req.body,
             { new: true }
         );
+        console.log('Transaction updated successfully:', updatedTransaction._id);
         res.json(updatedTransaction);
     } catch (err) {
+        console.error('UPDATE transaction error:', err.message);
         res.status(400).json({ message: err.message });
     }
 });

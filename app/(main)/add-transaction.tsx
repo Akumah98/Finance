@@ -46,6 +46,13 @@ export default function AddTransactionScreen() {
     const [mode, setMode] = useState<'single' | 'bulk'>('single');
     const [batchTransactions, setBatchTransactions] = useState<any[]>([]);
 
+    // Force single mode when editing
+    useEffect(() => {
+        if (isEditing) {
+            setMode('single');
+        }
+    }, [isEditing]);
+
     // Sync state with params when they change (e.g. navigating from "Edit")
     useEffect(() => {
         if (initialType) setType(initialType as 'expense' | 'income');
@@ -123,20 +130,24 @@ export default function AddTransactionScreen() {
                 const url = isEditing ? `${API_URL}/transactions/${id}` : `${API_URL}/transactions`;
                 const method = isEditing ? 'PUT' : 'POST';
 
+                const payload = {
+                    userId: user.id || user._id,
+                    type,
+                    amount: parseFloat(parseAmount(amount)),
+                    category: categories.find(c => (c._id || c.id) === selectedCategory)?.name || 'Other',
+                    date,
+                    note
+                };
+
+                console.log('Transaction save:', { url, method, id, payload });
+
                 const response = await fetch(url, {
                     method,
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`
                     },
-                    body: JSON.stringify({
-                        userId: user.id || user._id,
-                        type,
-                        amount: parseFloat(parseAmount(amount)),
-                        category: categories.find(c => (c._id || c.id) === selectedCategory)?.name || 'Other',
-                        date,
-                        note
-                    }),
+                    body: JSON.stringify(payload),
                 });
 
                 const data = await response.json();
@@ -221,7 +232,7 @@ export default function AddTransactionScreen() {
         const newTransaction = {
             userId: user.id || user._id,
             type,
-            amount: parseFloat(amount),
+            amount: parseFloat(parseAmount(amount)),
             category: categoryName,
             date, // Use the global date
             note
@@ -315,14 +326,16 @@ export default function AddTransactionScreen() {
                             <Ionicons name="trash-outline" size={24} color={colors.danger} />
                         </TouchableOpacity>
                     ) : (
-                        <TouchableOpacity
-                            onPress={() => setMode(mode === 'single' ? 'bulk' : 'single')}
-                            style={{ padding: 8 }}
-                        >
-                            <Text style={{ color: colors.primary, fontWeight: '600' }}>
-                                {mode === 'single' ? 'Bulk Mode' : 'Single'}
-                            </Text>
-                        </TouchableOpacity>
+                        !isEditing && (
+                            <TouchableOpacity
+                                onPress={() => setMode(mode === 'single' ? 'bulk' : 'single')}
+                                style={{ padding: 8 }}
+                            >
+                                <Text style={{ color: colors.primary, fontWeight: '600' }}>
+                                    {mode === 'single' ? 'Bulk Mode' : 'Single'}
+                                </Text>
+                            </TouchableOpacity>
+                        )
                     )}
                 </View>
 
