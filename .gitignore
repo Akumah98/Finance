@@ -45,3 +45,8 @@ app-example
 /android
 
 .early.coverage
+
+# Planning and Docs
+*.md
+!README.md
+*.docx
