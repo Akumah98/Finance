@@ -1,8 +1,10 @@
 import { colors } from '@/constants/colors';
+import { API_URL } from '@/constants/config';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link } from 'expo-router';
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Keyboard,
   Platform,
@@ -19,11 +21,55 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 const ForgotPasswordScreen = () => {
   const [email, setEmail] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleResetPassword = () => {
-    console.log('Reset password for:', email);
-    // Logic for sending email would go here
-    Alert.alert('Info', 'Password reset functionality is currently disabled.');
+  const handleResetPassword = async () => {
+    if (!email) {
+      Alert.alert('Error', 'Please enter your email address');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert('Error', 'Please enter a valid email address');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(`${API_URL}/auth/forgot-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        Alert.alert(
+          'Success',
+          'Password reset link has been sent to your email. Please check your inbox.',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                setEmail('');
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Error', data.message || 'Failed to send reset email');
+      }
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      Alert.alert('Error', 'Network error. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -68,6 +114,7 @@ const ForgotPasswordScreen = () => {
                 style={styles.resetPasswordButton}
                 activeOpacity={0.9}
                 onPress={handleResetPassword}
+                disabled={isLoading}
               >
                 <LinearGradient
                   colors={[colors.gradient1, colors.primary]}
@@ -75,7 +122,11 @@ const ForgotPasswordScreen = () => {
                   end={{ x: 1, y: 1 }}
                   style={styles.resetPasswordButtonGradient}
                 >
-                  <Text style={styles.resetPasswordButtonText}>Reset Password</Text>
+                  {isLoading ? (
+                    <ActivityIndicator color="white" />
+                  ) : (
+                    <Text style={styles.resetPasswordButtonText}>Send Reset Link</Text>
+                  )}
                 </LinearGradient>
               </TouchableOpacity>
 
