@@ -3,4 +3,4 @@
 // For Android Emulator, use 'http://10.0.2.2:5000'
 // For iOS Simulator, use 'http://localhost:5000'
 
-export const API_URL = "http://192.168.3.101:5000/api";
+export const API_URL = "https://finance-niws.onrender.com/api";

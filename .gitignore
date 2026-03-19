@@ -48,5 +48,4 @@ app-example
 
 # Planning and Docs
 *.md
-!README.md
 *.docx

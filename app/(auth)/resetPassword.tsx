@@ -1,7 +1,7 @@
 import { colors } from '@/constants/colors';
 import { API_URL } from '@/constants/config';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Link, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
@@ -19,32 +19,38 @@ import {
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
-const ForgotPasswordScreen = () => {
-  const [email, setEmail] = useState('');
+const ResetPasswordScreen = () => {
+  const [token, setToken] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
   const handleResetPassword = async () => {
-    if (!email) {
-      Alert.alert('Error', 'Please enter your email address');
+    if (!token || !newPassword || !confirmPassword) {
+      Alert.alert('Error', 'Please fill in all fields');
       return;
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      Alert.alert('Error', 'Please enter a valid email address');
+    if (newPassword !== confirmPassword) {
+      Alert.alert('Error', 'Passwords do not match');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters');
       return;
     }
 
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${API_URL}/auth/forgot-password`, {
+      const response = await fetch(`${API_URL}/auth/reset-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ token, newPassword }),
       });
 
       const data = await response.json();
@@ -52,21 +58,19 @@ const ForgotPasswordScreen = () => {
       if (response.ok) {
         Alert.alert(
           'Success',
-          'Password reset code has been sent to your email. Please check your inbox.',
+          'Password reset successfully! You can now log in.',
           [
             {
               text: 'OK',
-              onPress: () => {
-                router.push('/(auth)/resetPassword');
-              },
+              onPress: () => router.push('/(auth)/login'),
             },
           ]
         );
       } else {
-        Alert.alert('Error', data.message || 'Failed to send reset email');
+        Alert.alert('Error', data.message || 'Failed to reset password');
       }
     } catch (error) {
-      console.error('Forgot password error:', error);
+      console.error('Reset password error:', error);
       Alert.alert('Error', 'Network error. Please try again.');
     } finally {
       setIsLoading(false);
@@ -92,27 +96,47 @@ const ForgotPasswordScreen = () => {
           <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
             <View style={{ flex: 1, justifyContent: 'center' }}>
               <View style={styles.headerContainer}>
-                <Text style={styles.title}>Forgot Password?</Text>
+                <Text style={styles.title}>Reset Password</Text>
                 <Text style={styles.subtitle}>
-                  Enter your email to receive a password reset link.
+                  Enter the 6-digit code sent to your email and your new password.
                 </Text>
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Email Address</Text>
+                <Text style={styles.inputLabel}>Reset Code</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="Enter your email"
+                  placeholder="Enter 6-digit code"
                   placeholderTextColor={colors.textMuted}
-                  value={email}
-                  onChangeText={setEmail}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
+                  value={token}
+                  onChangeText={(text) => setToken(text.toUpperCase())}
+                  autoCapitalize="characters"
+                  maxLength={6}
+                />
+
+                <Text style={styles.inputLabel}>New Password</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter new password"
+                  placeholderTextColor={colors.textMuted}
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  secureTextEntry
+                />
+
+                <Text style={styles.inputLabel}>Confirm New Password</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Confirm new password"
+                  placeholderTextColor={colors.textMuted}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry
                 />
               </View>
 
               <TouchableOpacity
-                style={styles.resetPasswordButton}
+                style={styles.resetButton}
                 activeOpacity={0.9}
                 onPress={handleResetPassword}
                 disabled={isLoading}
@@ -121,24 +145,22 @@ const ForgotPasswordScreen = () => {
                   colors={[colors.gradient1, colors.primary]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
-                  style={styles.resetPasswordButtonGradient}
+                  style={styles.resetButtonGradient}
                 >
                   {isLoading ? (
                     <ActivityIndicator color="white" />
                   ) : (
-                    <Text style={styles.resetPasswordButtonText}>Send Reset Link</Text>
+                    <Text style={styles.resetButtonText}>Reset Password</Text>
                   )}
                 </LinearGradient>
               </TouchableOpacity>
 
-              <View style={styles.backToLoginContainer}>
-                <Text style={styles.backToLoginText}>Remembered your password? </Text>
-                <Link href="/(auth)/login" asChild>
-                  <TouchableOpacity>
-                    <Text style={styles.backToLoginLink}>Log In</Text>
-                  </TouchableOpacity>
-                </Link>
-              </View>
+              <TouchableOpacity 
+                onPress={() => router.back()}
+                style={styles.backButton}
+              >
+                <Text style={styles.backButtonText}>Back</Text>
+              </TouchableOpacity>
             </View>
           </TouchableWithoutFeedback>
         </KeyboardAwareScrollView>
@@ -147,7 +169,7 @@ const ForgotPasswordScreen = () => {
   );
 };
 
-export default ForgotPasswordScreen;
+export default ResetPasswordScreen;
 
 const styles = StyleSheet.create({
   container: {
@@ -176,10 +198,7 @@ const styles = StyleSheet.create({
     letterSpacing: -1,
   },
   subtitle: {
-    fontSize: Platform.select({
-      ios: 16,
-      android: 15,
-    }),
+    fontSize: 16,
     color: colors.textMuted,
     textAlign: 'center',
     paddingHorizontal: 20,
@@ -190,10 +209,7 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     color: colors.text,
-    fontSize: Platform.select({
-      ios: 14,
-      android: 13,
-    }),
+    fontSize: 14,
     fontWeight: '600',
     marginBottom: 8,
     marginLeft: 4,
@@ -201,21 +217,15 @@ const styles = StyleSheet.create({
   input: {
     backgroundColor: colors.glass,
     color: colors.text,
-    height: Platform.select({
-      ios: 56,
-      android: 50,
-    }),
+    height: 56,
     borderRadius: 16,
     paddingHorizontal: 20,
-    fontSize: Platform.select({
-      ios: 16,
-      android: 14,
-    }),
-    marginBottom: 16,
+    fontSize: 16,
+    marginBottom: 20,
     borderWidth: 1,
     borderColor: colors.border,
   },
-  resetPasswordButton: {
+  resetButton: {
     height: 56,
     borderRadius: 28,
     overflow: 'hidden',
@@ -224,39 +234,24 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 16,
     elevation: 10,
-    marginBottom: 32,
+    marginBottom: 24,
   },
-  resetPasswordButtonGradient: {
+  resetButtonGradient: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  resetPasswordButtonText: {
+  resetButtonText: {
     color: colors.text,
-    fontSize: Platform.select({
-      ios: 18,
-      android: 17,
-    }),
+    fontSize: 18,
     fontWeight: '800',
   },
-  backToLoginContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+  backButton: {
     alignItems: 'center',
   },
-  backToLoginText: {
-    color: colors.textMuted,
-    fontSize: Platform.select({
-      ios: 15,
-      android: 14,
-    }),
-  },
-  backToLoginLink: {
+  backButtonText: {
     color: colors.accent,
-    fontSize: Platform.select({
-      ios: 15,
-      android: 14,
-    }),
+    fontSize: 16,
     fontWeight: '700',
   },
 });
