@@ -1,10 +1,10 @@
 const brevo = require('@getbrevo/brevo');
 
-// Initialize the API client
+// Initialize the API instance
 const apiInstance = new brevo.TransactionalEmailsApi();
 
-// Set API key directly on the instance (correct syntax for @getbrevo/brevo)
-const apiKey = apiInstance.authentications['api-key'];
+// Correct authentication key name is 'apiKey' not 'api-key'
+const apiKey = apiInstance.authentications['apiKey'];
 apiKey.apiKey = process.env.BREVO_API_KEY;
 
 /**
