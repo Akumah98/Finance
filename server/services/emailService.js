@@ -1,11 +1,14 @@
-const brevo = require('@getbrevo/brevo');
+const SibApiV3Sdk = require('@getbrevo/brevo');
 
-// Initialize the API instance
-const apiInstance = new brevo.TransactionalEmailsApi();
+// Create API client instance
+const client = SibApiV3Sdk.ApiClient.instance;
 
-// Correct authentication key name is 'apiKey' not 'api-key'
-const apiKey = apiInstance.authentications['apiKey'];
+// Set API key correctly
+const apiKey = client.authentications['api-key'];
 apiKey.apiKey = process.env.BREVO_API_KEY;
+
+// Create email API instance
+const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
 
 /**
  * Sends a password reset email to the user with a 6-digit token.
@@ -14,9 +17,10 @@ apiKey.apiKey = process.env.BREVO_API_KEY;
  */
 const sendPasswordResetEmail = async (email, token) => {
     try {
-        const sendSmtpEmail = new brevo.SendSmtpEmail();
+        const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
 
         sendSmtpEmail.subject = "Glitch: Your Password Reset Code";
+
         sendSmtpEmail.htmlContent = `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
                 <h2 style="color: #333; text-align: center;">Glitch Password Reset</h2>
@@ -29,15 +33,24 @@ const sendPasswordResetEmail = async (email, token) => {
                 <p style="margin-top: 30px; font-size: 12px; color: #777;">Best regards,<br>The Glitch Team</p>
             </div>
         `;
-        sendSmtpEmail.sender = { "name": "Glitch App", "email": "akumahsuh8@gmail.com" };
-        sendSmtpEmail.to = [{ "email": email }];
+
+        sendSmtpEmail.sender = {
+            name: "Glitch App",
+            email: "akumahsuh8@gmail.com"
+        };
+
+        sendSmtpEmail.to = [
+            { email: email }
+        ];
 
         const result = await apiInstance.sendTransacEmail(sendSmtpEmail);
-        console.log('Reset email sent successfully:', result);
+
+        console.log("✅ Reset email sent:", result);
         return result;
+
     } catch (error) {
-        console.error('Error sending reset email:', error);
-        throw new Error('Failed to send reset email');
+        console.error("❌ Email error:", error?.response?.body || error.message);
+        throw new Error("Failed to send reset email");
     }
 };
 
