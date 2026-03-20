@@ -1,11 +1,12 @@
-const SibApiV3Sdk = require('@getbrevo/brevo');
+const Brevo = require('@getbrevo/brevo');
 
 // Initialize the API client
-const defaultClient = SibApiV3Sdk.ApiClient.instance;
-const apiKey = defaultClient.authentications['api-key'];
-apiKey.apiKey = process.env.BREVO_API_KEY;
+const apiInstance = new Brevo.TransactionalEmailsApi();
 
-const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
+apiInstance.setApiKey(
+    Brevo.TransactionalEmailsApiApiKeys.apiKey,
+    process.env.BREVO_API_KEY
+);
 
 /**
  * Sends a password reset email to the user with a 6-digit token.
@@ -14,7 +15,7 @@ const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
  */
 const sendPasswordResetEmail = async (email, token) => {
     try {
-        const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
+        const sendSmtpEmail = new Brevo.SendSmtpEmail();
 
         sendSmtpEmail.subject = "Glitch: Your Password Reset Code";
         sendSmtpEmail.htmlContent = `
