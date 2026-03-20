@@ -4,3 +4,4 @@
 // For iOS Simulator, use 'http://localhost:5000'
 
 export const API_URL = "https://finance-niws.onrender.com/api";
+//export const API_URL = "http://172.20.10.3:5000/api";
