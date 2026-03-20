@@ -1,12 +1,11 @@
-const Brevo = require('@getbrevo/brevo');
+const brevo = require('@getbrevo/brevo');
 
 // Initialize the API client
-const apiInstance = new Brevo.TransactionalEmailsApi();
+const apiInstance = new brevo.TransactionalEmailsApi();
 
-apiInstance.setApiKey(
-    Brevo.TransactionalEmailsApiApiKeys.apiKey,
-    process.env.BREVO_API_KEY
-);
+// Set API key directly on the instance (correct syntax for @getbrevo/brevo)
+const apiKey = apiInstance.authentications['api-key'];
+apiKey.apiKey = process.env.BREVO_API_KEY;
 
 /**
  * Sends a password reset email to the user with a 6-digit token.
@@ -15,7 +14,7 @@ apiInstance.setApiKey(
  */
 const sendPasswordResetEmail = async (email, token) => {
     try {
-        const sendSmtpEmail = new Brevo.SendSmtpEmail();
+        const sendSmtpEmail = new brevo.SendSmtpEmail();
 
         sendSmtpEmail.subject = "Glitch: Your Password Reset Code";
         sendSmtpEmail.htmlContent = `
