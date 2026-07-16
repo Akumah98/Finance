@@ -8,6 +8,7 @@ import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
+    Alert,
     FlatList,
     KeyboardAvoidingView,
     Platform,
@@ -25,6 +26,7 @@ export default function ChatScreen() {
     const [messages, setMessages] = useState<any[]>([]);
     const [inputText, setInputText] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [isClearing, setIsClearing] = useState(false);
     const flatListRef = useRef<FlatList>(null);
 
     useEffect(() => {
@@ -44,6 +46,25 @@ export default function ChatScreen() {
         } catch (error) {
             console.error('Failed to fetch chat history', error);
         }
+    };
+
+    const handleClearChat = () => {
+        Alert.alert('Clear Chat', 'Delete all messages?', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Clear', style: 'destructive', onPress: async () => {
+                    setIsClearing(true);
+                    try {
+                        await fetch(`${API_URL}/chat/${user.id || user._id}`, { method: 'DELETE' });
+                        setMessages([]);
+                    } catch {
+                        Alert.alert('Error', 'Failed to clear chat');
+                    } finally {
+                        setIsClearing(false);
+                    }
+                }
+            }
+        ]);
     };
 
     const handleSend = async () => {
@@ -106,7 +127,9 @@ export default function ChatScreen() {
                             <Text style={styles.onlineText}>Online</Text>
                         </View>
                     </View>
-                    <View style={{ width: 40 }} />
+                    <TouchableOpacity onPress={handleClearChat} style={styles.backButton} disabled={isClearing}>
+                        <Ionicons name="trash-outline" size={20} color={colors.textMuted} />
+                    </TouchableOpacity>
                 </View>
 
                 {/* Messages */}
@@ -117,6 +140,15 @@ export default function ChatScreen() {
                     keyExtractor={(item) => item._id || item.id || Math.random().toString()}
                     contentContainerStyle={styles.listContent}
                     onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+                    ListEmptyComponent={
+                        <View style={styles.emptyState}>
+                            <Ionicons name="chatbubble-ellipses-outline" size={48} color={colors.textMuted} />
+                            <Text style={styles.emptyTitle}>Glitch Assistant</Text>
+                            <Text style={styles.emptySubtitle}>
+                                Ask me anything about your finances — spending habits, budget tips, savings advice, or what to do with this month's income.
+                            </Text>
+                        </View>
+                    }
                 />
 
                 {/* Input Area */}
@@ -174,4 +206,7 @@ const styles = StyleSheet.create({
     inputContainer: { flexDirection: 'row', padding: 16, backgroundColor: 'rgba(0,0,0,0.3)', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' },
     input: { flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 24, paddingHorizontal: 20, paddingVertical: 12, color: colors.text, fontSize: 16, marginRight: 12 },
     sendButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center' },
+    emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40, paddingTop: 80, gap: 12 },
+    emptyTitle: { color: colors.text, fontSize: 20, fontWeight: '700', textAlign: 'center' },
+    emptySubtitle: { color: colors.textMuted, fontSize: 14, textAlign: 'center', lineHeight: 22 },
 });

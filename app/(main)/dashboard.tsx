@@ -88,6 +88,19 @@ export default function DashboardScreen() {
     debtSlayer: 0
   });
 
+  const [healthScore, setHealthScore] = useState<{
+    score: number;
+    grade: string;
+    color: string;
+    tip: string;
+    breakdown: {
+      emergencyFund: any;
+      savingsRate: any;
+      budgetAdherence: any;
+      billsOnTime: any;
+    };
+  } | null>(null);
+
   useEffect(() => {
     Animated.parallel([
       Animated.spring(fadeAnim, { toValue: 1, friction: 8, useNativeDriver: true }),
@@ -146,6 +159,19 @@ export default function DashboardScreen() {
     }
   };
 
+  const fetchHealthScore = async () => {
+    if (!user) return;
+    try {
+      const response = await fetch(`${API_URL}/health-score/${user.id || user._id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (response.ok) setHealthScore(data);
+    } catch {
+      // silent — card just won't render
+    }
+  };
+
   const fetchUserStats = async () => {
     if (!user) return;
     try {
@@ -192,6 +218,7 @@ export default function DashboardScreen() {
       fetchTransactions();
       fetchBills();
       fetchUserStats();
+      fetchHealthScore();
     }, [user])
   );
 
@@ -352,22 +379,14 @@ export default function DashboardScreen() {
 
   const quickActions = [
     { label: "Add Expense/Income", icon: "add-circle", color: "#8B5CF6", link: "/(main)/add-transaction" },
+    { label: "Money Plan", icon: "pie-chart", color: "#10B981", link: "/(main)/money-plan" },
+    { label: "Month Review", icon: "calendar", color: "#F59E0B", link: "/(main)/monthly-review" },
     { label: "My Goals", icon: "ribbon", color: "#8B5CF6", link: "/(main)/goals" },
     { label: "Add Budget", icon: "wallet", color: "#8B5CF6", link: "/(main)/budgets" },
     { label: "Groups", icon: "people", color: "#8B5CF6", link: "/(main)/groups" },
     { label: "Export", icon: "download", color: "#8B5CF6", link: "/(main)/settings" },
   ];
 
-  const insights = [
-    { title: "This Week", value: formatAmount(842), change: "+12%", trend: "up" },
-    { title: "Dining Alert", value: formatAmount(238), change: "+38%", trend: "alert" },
-    { title: "30-Day Forecast", value: "+" + formatAmount(3240), change: "Healthy", trend: "good" },
-  ];
-
-  const recommendations = [
-    `Reduce dining spend by ${formatAmount(120)} this month`,
-    `Cancel 2 unused subscriptions → Save ${formatAmount(68)}/mo`,
-  ];
 
   const upcomingBills = bills
     .map(bill => {
@@ -523,7 +542,7 @@ export default function DashboardScreen() {
             </TouchableOpacity>
           </Animated.View>
 
-          {/* AI Spending Summary Card */}
+          {/* Financial Health Score Card */}
           <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
             <BlurView intensity={80} tint="dark" style={styles.aiSummaryCard}>
               <LinearGradient
@@ -531,16 +550,59 @@ export default function DashboardScreen() {
                 style={StyleSheet.absoluteFill}
               />
               <View style={styles.aiSummaryHeader}>
-                <MaterialCommunityIcons name="robot-happy-outline" size={24} color={colors.text} />
-                <Text style={styles.aiSummaryTitle}>AI Spending Coach</Text>
+                <MaterialCommunityIcons name="shield-check-outline" size={24} color={colors.text} />
+                <Text style={styles.aiSummaryTitle}>Financial Health Score</Text>
               </View>
-              <Text style={[styles.aiSummaryText, { color: colors.textMuted }]}>
-                Your spending on <Text style={{ color: colors.textMuted, fontWeight: '600' }}>Dining Out</Text> is up <Text style={{ color: colors.textMuted, fontWeight: '600' }}>15%</Text> this week.
-              </Text>
-              <TouchableOpacity style={styles.aiSummaryButton}>
-                <Text style={styles.aiSummaryButtonText}>View Insights</Text>
-                <Ionicons name="arrow-forward" size={16} color={colors.text} />
-              </TouchableOpacity>
+
+              {healthScore ? (
+                <>
+                  {/* Score row */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 14, marginBottom: 16, gap: 16 }}>
+                    {/* Score ring (simple circle) */}
+                    <View style={{
+                      width: 72, height: 72, borderRadius: 36,
+                      borderWidth: 5, borderColor: healthScore.color,
+                      justifyContent: 'center', alignItems: 'center',
+                      backgroundColor: healthScore.color + '15'
+                    }}>
+                      <Text style={{ color: colors.text, fontSize: 22, fontWeight: '900' }}>{healthScore.score}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: healthScore.color, fontSize: 18, fontWeight: '800' }}>{healthScore.grade}</Text>
+                      <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 4, lineHeight: 18 }}>{healthScore.tip}</Text>
+                    </View>
+                  </View>
+
+                  {/* 4 signal pills */}
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                    {[
+                      { key: 'emergencyFund', label: 'Emergency', icon: 'umbrella-outline' },
+                      { key: 'savingsRate', label: 'Savings', icon: 'trending-up' },
+                      { key: 'budgetAdherence', label: 'Budgets', icon: 'wallet-outline' },
+                      { key: 'billsOnTime', label: 'Bills', icon: 'checkmark-circle-outline' },
+                    ].map(({ key, label, icon }) => {
+                      const sig = healthScore.breakdown[key as keyof typeof healthScore.breakdown];
+                      const pct = Math.round((sig.score / sig.max) * 100);
+                      const sigColor = pct >= 80 ? colors.success : pct >= 50 ? '#F59E0B' : colors.danger;
+                      return (
+                        <View key={key} style={{
+                          flexDirection: 'row', alignItems: 'center', gap: 5,
+                          backgroundColor: sigColor + '15', paddingHorizontal: 10, paddingVertical: 6,
+                          borderRadius: 20, borderWidth: 1, borderColor: sigColor + '40'
+                        }}>
+                          <Ionicons name={icon as any} size={13} color={sigColor} />
+                          <Text style={{ color: sigColor, fontSize: 11, fontWeight: '700' }}>{label}</Text>
+                          <Text style={{ color: sigColor, fontSize: 11, fontWeight: '900' }}>{sig.score}/{sig.max}</Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                </>
+              ) : (
+                <Text style={[styles.aiSummaryText, { color: colors.textMuted }]}>
+                  Log transactions, set budgets, and add bills to see your health score.
+                </Text>
+              )}
             </BlurView>
           </Animated.View>
 
@@ -746,44 +808,38 @@ export default function DashboardScreen() {
             </View>
           </View>
 
-          {/* AI Insights */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>AI Insights</Text>
-            {insights.map((insight, i) => (
-              <BlurView key={i} intensity={60} style={styles.insightCard}>
-                <View style={styles.insightContent}>
-                  <View>
-                    <Text style={styles.insightTitle}>{insight.title}</Text>
-                    <Text style={styles.insightValue}>{insight.value}</Text>
+          {/* Smart Recommendations from real insights */}
+          {healthScore && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Smart Recommendations</Text>
+              {[
+                healthScore.breakdown.emergencyFund.score < 25 && healthScore.breakdown.emergencyFund.label !== 'No emergency fund goal found'
+                  ? `Emergency fund is ${healthScore.breakdown.emergencyFund.pct ?? 0}% funded — keep building it`
+                  : healthScore.breakdown.emergencyFund.score === 0
+                  ? 'Create an "Emergency Fund" savings goal to track your safety net'
+                  : null,
+                healthScore.breakdown.savingsRate.rate < 20
+                  ? `Your savings rate is ${healthScore.breakdown.savingsRate.rate}% — aim for 20%`
+                  : null,
+                healthScore.breakdown.budgetAdherence.noBudgets
+                  ? 'Set budgets for your top categories to unlock budget tracking'
+                  : healthScore.breakdown.budgetAdherence.score < 25
+                  ? `${healthScore.breakdown.budgetAdherence.kept}/${healthScore.breakdown.budgetAdherence.total} categories within budget`
+                  : null,
+                healthScore.breakdown.billsOnTime.overdue > 0
+                  ? `${healthScore.breakdown.billsOnTime.overdue} overdue bill${healthScore.breakdown.billsOnTime.overdue > 1 ? 's' : ''} — pay to protect your score`
+                  : null,
+              ]
+                .filter(Boolean)
+                .slice(0, 3)
+                .map((rec, i) => (
+                  <View key={i} style={styles.recCard}>
+                    <Ionicons name="sparkles" size={20} color="#8B5CF6" />
+                    <Text style={styles.recText}>{rec}</Text>
                   </View>
-                  <View style={styles.insightRight}>
-                    <Text style={[
-                      styles.insightChange,
-                      insight.trend === "alert" ? { color: colors.danger } : { color: colors.success }
-                    ]}>
-                      {insight.change}
-                    </Text>
-                    <Ionicons
-                      name={insight.trend === "alert" ? "alert-circle" : "trending-up"}
-                      size={20}
-                      color={insight.trend === "alert" ? colors.danger : colors.success}
-                    />
-                  </View>
-                </View>
-              </BlurView>
-            ))}
-          </View>
-
-          {/* Recommendations */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Smart Recommendations</Text>
-            {recommendations.map((rec, i) => (
-              <View key={i} style={styles.recCard}>
-                <Ionicons name="sparkles" size={20} color="#8B5CF6" />
-                <Text style={styles.recText}>{rec}</Text>
-              </View>
-            ))}
-          </View>
+                ))}
+            </View>
+          )}
 
           {/* Upcoming Bills */}
           <View style={styles.section}>
@@ -973,24 +1029,6 @@ const styles = StyleSheet.create({
     lineHeight: 25,
     marginTop: 14,
     marginBottom: 18,
-  },
-  aiSummaryButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    alignSelf: "flex-start",
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  aiSummaryButtonText: {
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: "500",
-    opacity: 0.95,
   },
 
   section: { marginHorizontal: 20, marginBottom: 28 },

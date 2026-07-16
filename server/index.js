@@ -25,6 +25,9 @@ app.use('/api/chat', require('./routes/chatRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/insights', require('./routes/insightsRoutes'));
 app.use('/api/budgets', require('./routes/budgetRoutes'));
+app.use('/api/money-plan', require('./routes/moneyPlanRoutes'));
+app.use('/api/health-score', require('./routes/healthScoreRoutes'));
+app.use('/api/monthly-review', require('./routes/monthlyReviewRoutes'));
 
 // Routes
 app.get('/', (req, res) => {

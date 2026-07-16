@@ -1,0 +1,53 @@
+# Server folder (hosted separately on Render)
+server/
+
+# Dependencies (EAS installs these from package.json)
+node_modules/
+
+# Expo dev files
+.expo/
+dist/
+web-build/
+
+# Native folders
+/ios
+/android
+.kotlin/
+
+# Git
+.git/
+
+# IDE and config
+.vscode/
+.qodo/
+
+# Docs and planning
+*.md
+*.docx
+docs/
+app-example/
+
+# Debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+
+# Credentials (never upload)
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.pem
+
+# Local env
+.env
+.env*.local
+
+# Misc
+.early.coverage
+*.tsbuildinfo
+*.orig.*
