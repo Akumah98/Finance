@@ -122,6 +122,8 @@ export default function MainTabLayout() {
       <Tabs.Screen name="test-connection" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="goals" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="budgets" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+      <Tabs.Screen name="money-plan" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+      <Tabs.Screen name="monthly-review" options={{ href: null, tabBarStyle: { display: 'none' } }} />
 
     </Tabs>
 

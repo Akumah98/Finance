@@ -1,6 +1,8 @@
 import { AuthProvider } from '@/context/AuthContext';
 import { CurrencyProvider } from '@/context/CurrencyContext';
 import { OfflineProvider } from '@/context/OfflineContext';
+import { usePushNotifications } from '@/features/notifications/hooks/usePushNotifications';
+import { NotificationBanner } from '@/features/notifications/components/NotificationBanner';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -13,6 +15,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  const { notification } = usePushNotifications();
   const [fontsLoaded] = useFonts({
     // Add your custom fonts here if needed
     // Example: 'Inter-Bold': require('./assets/fonts/Inter-Bold.ttf'),
@@ -32,6 +35,10 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <StatusBar style="dark" />
+        <NotificationBanner
+          title={notification?.request.content.title ?? ''}
+          body={notification?.request.content.body ?? ''}
+        />
         <AuthProvider>
           <OfflineProvider>
             <CurrencyProvider>

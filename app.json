@@ -33,6 +33,13 @@
     "plugins": [
       "expo-router",
       [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#ffffff"
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",
@@ -55,8 +62,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "56b1a44a-4f83-4611-924d-73a8fafc523a"
+        "projectId": "82b57487-17c2-42b3-912c-ef91218544ce"
       }
-    }
+    },
+    "owner": "tangentogroup"
   }
 }

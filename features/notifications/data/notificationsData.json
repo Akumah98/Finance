@@ -1,0 +1,15 @@
+{
+  "welcomeNotification": {
+    "title": "Welcome to Glitch! 👋",
+    "body": "Push notifications are now successfully enabled.",
+    "data": {
+      "type": "WELCOME"
+    }
+  },
+  "defaultChannel": {
+    "id": "default",
+    "name": "General Notifications",
+    "sound": true,
+    "vibrate": true
+  }
+}
