@@ -2,7 +2,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-const EMBEDDING_MODEL = 'text-embedding-004';
+const EMBEDDING_MODEL = 'gemini-embedding-exp-03-07';
 const DIMENSIONS = 768;
 
 async function generateEmbedding(text) {
@@ -10,7 +10,9 @@ async function generateEmbedding(text) {
 
     try {
         const model = genAI.getGenerativeModel({ model: EMBEDDING_MODEL });
-        const result = await model.embedContent(text.trim());
+        const result = await model.embedContent({
+            content: { parts: [{ text: text.trim() }] },
+        });
         return result.embedding.values;
     } catch (err) {
         console.error('Embedding generation failed:', err.message);
@@ -23,9 +25,15 @@ async function generateEmbeddings(texts) {
 
     try {
         const model = genAI.getGenerativeModel({ model: EMBEDDING_MODEL });
-        const result = await model.batchEmbedContents(
-            texts.map(text => ({ content: { parts: [{ text: text.trim() }] } }))
-        );
+        const requests = texts
+            .filter(t => t && t.trim().length > 0)
+            .map(text => ({
+                content: { parts: [{ text: text.trim() }] },
+            }));
+
+        if (requests.length === 0) return texts.map(() => null);
+
+        const result = await model.batchEmbedContents({ requests });
         return result.embeddings.map(e => e.values);
     } catch (err) {
         console.error('Batch embedding failed:', err.message);

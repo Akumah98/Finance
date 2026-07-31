@@ -79,7 +79,7 @@ Rules:
 - If there's not enough data, still provide helpful generic advice but note it in weeklySummary.`;
 
     try {
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
         const result = await model.generateContent(prompt);
         const responseText = result.response.text();
 

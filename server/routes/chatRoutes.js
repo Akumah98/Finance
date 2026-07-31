@@ -242,7 +242,7 @@ router.post('/', async (req, res) => {
 
         // 6. Call Gemini
         const model = genAI.getGenerativeModel({
-            model: 'gemini-2.0-flash-lite',
+            model: 'gemini-2.0-flash',
             systemInstruction: systemPrompt,
         });
 

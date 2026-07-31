@@ -153,7 +153,7 @@ Data: Income ${totalIncome.toFixed(0)}, Expenses ${totalExpenses.toFixed(0)}, Sa
 
 Write ONLY the narrative — no JSON, no formatting, just plain text.`;
 
-                const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' });
+                const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
                 const result = await model.generateContent(prompt);
                 aiNarrative = result.response.text().trim();
             }
