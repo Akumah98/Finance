@@ -1,6 +1,7 @@
 import { colors } from "@/constants/colors";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
+import { useCurrency } from "@/context/CurrencyContext";
 import { formatAmount, parseAmount } from "@/utils/inputValidation";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -24,6 +25,7 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 export default function AddGoalScreen() {
     const router = useRouter();
     const { user, token } = useAuth();
+    const { currency } = useCurrency();
     const params = useLocalSearchParams();
     const isEditing = !!params.id;
 

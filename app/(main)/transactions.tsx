@@ -1,6 +1,7 @@
 import { colors } from "@/constants/colors";
 import { api } from "@/lib/api";
 import { localCache } from "@/lib/localCache";
+import { TransactionsSkeleton } from "@/components/shimmer/TransactionsSkeleton";
 import { useAuth } from "@/context/AuthContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -285,8 +286,12 @@ const TransactionsScreen = () => {
           style={StyleSheet.absoluteFill}
         />
 
-        {/* Header */}
-        <View style={styles.header}>
+        {isLoading ? (
+          <TransactionsSkeleton />
+        ) : (
+          <>
+            {/* Header */}
+            <View style={styles.header}>
           <View style={styles.monthNavigator}>
             <TouchableOpacity onPress={previousMonth} style={styles.navButton}>
               <Ionicons name="chevron-back" size={20} color={colors.text} />
@@ -429,6 +434,8 @@ const TransactionsScreen = () => {
             </LinearGradient>
           </TouchableOpacity>
         </Link>
+          </>
+        )}
       </SafeAreaView>
     </SafeAreaProvider>
   );

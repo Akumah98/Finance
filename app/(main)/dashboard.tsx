@@ -1,6 +1,7 @@
 "use client";
 import { api } from "@/lib/api";
 import { localCache } from "@/lib/localCache";
+import { DashboardSkeleton } from "@/components/shimmer/DashboardSkeleton";
 import { useAuth } from "@/context/AuthContext";
 import { calculateLevel, getProgressToNextLevel, getTierEmoji, getTierName } from '@/utils/achievementLevels';
 import { formatAmount as formatInputAmount, parseAmount } from "@/utils/inputValidation";

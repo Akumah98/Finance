@@ -1,5 +1,6 @@
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
+import { MoneyPlanSkeleton } from "@/components/shimmer/MoneyPlanSkeleton";
 import { useCurrency } from "@/context/CurrencyContext";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
@@ -179,10 +180,12 @@ export default function MoneyPlanScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
-        <LinearGradient colors={["#1E1B4B", "#0F0F1A", "#0F172A"]} style={StyleSheet.absoluteFill} />
-        <ActivityIndicator size="large" color={colors.primary} />
-      </SafeAreaView>
+      <SafeAreaProvider>
+        <SafeAreaView style={styles.container}>
+          <LinearGradient colors={["#1E1B4B", "#0F0F1A", "#0F172A"]} style={StyleSheet.absoluteFill} />
+          <MoneyPlanSkeleton />
+        </SafeAreaView>
+      </SafeAreaProvider>
     );
   }
 

@@ -1,6 +1,7 @@
 import { colors } from "@/constants/colors";
 import { api } from "@/lib/api";
 import { localCache } from "@/lib/localCache";
+import { BillsSkeleton } from "@/components/shimmer/BillsSkeleton";
 import { useAuth } from "@/context/AuthContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import { FontAwesome5, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -356,7 +357,7 @@ const BillsScreen = () => {
             </View>
 
             {isLoading ? (
-              <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />
+              <BillsSkeleton />
             ) : viewMode === 'List' ? (
               <BlurView intensity={60} style={styles.card}>
                 {bills.length === 0 ? (

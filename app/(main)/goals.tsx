@@ -1,6 +1,7 @@
 "use client";
 import { api } from "@/lib/api";
 import { localCache } from "@/lib/localCache";
+import { GoalsSkeleton } from "@/components/shimmer/GoalsSkeleton";
 import { useAuth } from "@/context/AuthContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import { formatAmount as formatInputAmount, parseAmount } from "@/utils/inputValidation";
@@ -44,6 +45,7 @@ export default function GoalsScreen() {
     const { user } = useAuth();
     const { currency, formatAmount } = useCurrency();
     const [goals, setGoals] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [selectedGoal, setSelectedGoal] = useState<any>(null);
     const [addFundsModalVisible, setAddFundsModalVisible] = useState(false);
     const [addAmount, setAddAmount] = useState('');
@@ -55,7 +57,10 @@ export default function GoalsScreen() {
         if (!user) return;
         try {
             const cached = await localCache.get<any[]>(goalsCacheKey);
-            if (cached) setGoals(cached);
+            if (cached) {
+                setGoals(cached);
+                setIsLoading(false);
+            }
 
             const { data, error } = await api.get('/savings-goals');
             if (data) {
@@ -64,6 +69,8 @@ export default function GoalsScreen() {
             }
         } catch (error) {
             console.error('Failed to fetch goals');
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -124,13 +131,16 @@ export default function GoalsScreen() {
                     </Link>
                 </View>
 
-                <ScrollView
-                    showsVerticalScrollIndicator={false}
-                    contentContainerStyle={styles.content}
-                    refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
-                    }
-                >
+                {isLoading ? (
+                    <GoalsSkeleton />
+                ) : (
+                    <ScrollView
+                        showsVerticalScrollIndicator={false}
+                        contentContainerStyle={styles.content}
+                        refreshControl={
+                            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
+                        }
+                    >
                     {goals.length === 0 ? (
                         <View style={styles.emptyState}>
                             <MaterialCommunityIcons name="piggy-bank-outline" size={64} color={colors.textMuted} />
@@ -251,6 +261,7 @@ export default function GoalsScreen() {
                         })
                     )}
                 </ScrollView>
+                )}
 
                 <Modal
                     animationType="fade"

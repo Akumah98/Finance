@@ -1,5 +1,6 @@
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
+import { MonthlyReviewSkeleton } from "@/components/shimmer/MonthlyReviewSkeleton";
 import { useCurrency } from "@/context/CurrencyContext";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
@@ -8,6 +9,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
+  DimensionValue,
   RefreshControl,
   ScrollView,
   StatusBar,
@@ -139,12 +141,12 @@ export default function MonthlyReviewScreen() {
     fetchReview(selectedIdx);
   };
 
-  const getBucketBarWidth = (bucket: BucketData): string => {
+  const getBucketBarWidth = (bucket: BucketData): DimensionValue => {
     if (bucket.planned === 0) return "0%";
     return `${Math.min((bucket.actual / bucket.planned) * 100, 100)}%`;
   };
 
-  const getBucketOverflowWidth = (bucket: BucketData): string => {
+  const getBucketOverflowWidth = (bucket: BucketData): DimensionValue => {
     if (bucket.planned === 0 || bucket.status !== "over") return "0%";
     const overflow = ((bucket.actual - bucket.planned) / bucket.planned) * 100;
     return `${Math.min(overflow, 30)}%`;
@@ -152,10 +154,12 @@ export default function MonthlyReviewScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
-        <LinearGradient colors={["#1E1B4B", "#0F0F1A", "#0F172A"]} style={StyleSheet.absoluteFill} />
-        <ActivityIndicator size="large" color={colors.primary} />
-      </SafeAreaView>
+      <SafeAreaProvider>
+        <SafeAreaView style={styles.container}>
+          <LinearGradient colors={["#1E1B4B", "#0F0F1A", "#0F172A"]} style={StyleSheet.absoluteFill} />
+          <MonthlyReviewSkeleton />
+        </SafeAreaView>
+      </SafeAreaProvider>
     );
   }
 

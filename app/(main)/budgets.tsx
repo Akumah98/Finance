@@ -1,5 +1,6 @@
 import { api } from "@/lib/api";
 import { localCache } from "@/lib/localCache";
+import { BudgetsSkeleton } from "@/components/shimmer/BudgetsSkeleton";
 import { useAuth } from "@/context/AuthContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import { formatAmount as formatInputAmount, parseAmount } from "@/utils/inputValidation";
@@ -226,9 +227,7 @@ const BudgetsScreen = () => {
             <SafeAreaProvider>
                 <SafeAreaView style={styles.container}>
                     <LinearGradient colors={[colors.bg, "#0F172A"]} style={StyleSheet.absoluteFill} />
-                    <View style={styles.loadingContainer}>
-                        <ActivityIndicator size="large" color={colors.primary} />
-                    </View>
+                    <BudgetsSkeleton />
                 </SafeAreaView>
             </SafeAreaProvider>
         );

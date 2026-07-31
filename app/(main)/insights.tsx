@@ -1,5 +1,6 @@
 import { api } from "@/lib/api";
 import { localCache } from "@/lib/localCache";
+import { InsightsSkeleton } from "@/components/shimmer/InsightsSkeleton";
 import { useAuth } from "@/context/AuthContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -82,9 +83,7 @@ const InsightsScreen = () => {
             colors={["#0F0F1A", "#1E1B4B", "#0F172A"]}
             style={StyleSheet.absoluteFill}
           />
-          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <ActivityIndicator size="large" color="#8B5CF6" />
-          </View>
+          <InsightsSkeleton />
         </SafeAreaView>
       </SafeAreaProvider>
     );
