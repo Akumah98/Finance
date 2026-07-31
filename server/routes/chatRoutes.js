@@ -1,6 +1,5 @@
 const express = require('express');
 const router = express.Router();
-const { GoogleGenerativeAI } = require('@google/generative-ai');
 const Message = require('../models/Message');
 const Transaction = require('../models/Transaction');
 const Bill = require('../models/Bill');
@@ -9,8 +8,7 @@ const Budget = require('../models/Budget');
 const MoneyPlan = require('../models/MoneyPlan');
 const { protect } = require('../middleware/authMiddleware');
 const { generateEmbedding, buildMessageText } = require('../services/embeddingService');
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const { chatWithFallback } = require('../services/aiProvider');
 
 router.use(protect);
 
@@ -240,15 +238,8 @@ router.post('/', async (req, res) => {
         const context = await getUserContext(userId);
         const systemPrompt = buildSystemPrompt(context, ragContext);
 
-        // 6. Call Gemini
-        const model = genAI.getGenerativeModel({
-            model: 'gemini-2.0-flash',
-            systemInstruction: systemPrompt,
-        });
-
-        const chat = model.startChat({ history: geminiHistory });
-        const result = await chat.sendMessage(text);
-        const responseText = result.response.text();
+        // 6. Call AI with fallback across providers
+        const { text: responseText } = await chatWithFallback(systemPrompt, geminiHistory, text);
 
         // 7. Save AI response
         const aiMessage = new Message({ userId, text: responseText, role: 'assistant' });

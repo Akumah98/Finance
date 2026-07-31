@@ -1,13 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const { GoogleGenerativeAI } = require('@google/generative-ai');
 const Transaction = require('../models/Transaction');
 const Budget = require('../models/Budget');
 const Bill = require('../models/Bill');
 const MoneyPlan = require('../models/MoneyPlan');
 const { protect } = require('../middleware/authMiddleware');
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const { generateWithFallback } = require('../services/aiProvider');
 
 router.use(protect);
 
@@ -153,9 +151,8 @@ Data: Income ${totalIncome.toFixed(0)}, Expenses ${totalExpenses.toFixed(0)}, Sa
 
 Write ONLY the narrative — no JSON, no formatting, just plain text.`;
 
-                const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-                const result = await model.generateContent(prompt);
-                aiNarrative = result.response.text().trim();
+                const { text } = await generateWithFallback(prompt);
+                aiNarrative = text.trim();
             }
         } catch (err) {
             console.error('AI narrative generation failed:', err.message);

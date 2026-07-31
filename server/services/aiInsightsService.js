@@ -1,6 +1,4 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const { generateWithFallback } = require('./aiProvider');
 
 async function generateAIInsights(financialData) {
     const {
@@ -79,9 +77,7 @@ Rules:
 - If there's not enough data, still provide helpful generic advice but note it in weeklySummary.`;
 
     try {
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-        const result = await model.generateContent(prompt);
-        const responseText = result.response.text();
+        const { text: responseText } = await generateWithFallback(prompt);
 
         const cleaned = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
         const parsed = JSON.parse(cleaned);
