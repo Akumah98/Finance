@@ -2,7 +2,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-const EMBEDDING_MODEL = 'gemini-embedding-exp-03-07';
+const EMBEDDING_MODEL = 'text-embedding-005';
 const DIMENSIONS = 768;
 
 async function generateEmbedding(text) {
