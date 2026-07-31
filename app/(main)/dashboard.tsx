@@ -1,5 +1,5 @@
 "use client";
-import { API_URL } from "@/constants/config";
+import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { calculateLevel, getProgressToNextLevel, getTierEmoji, getTierName } from '@/utils/achievementLevels';
 import { formatAmount as formatInputAmount, parseAmount } from "@/utils/inputValidation";
@@ -111,15 +111,8 @@ export default function DashboardScreen() {
   const fetchGoals = async () => {
     if (!user) return;
     try {
-      const response = await fetch(`${API_URL}/savings-goals/${user.id || user._id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setGoals(data);
-      }
+      const { data } = await api.get('/savings-goals');
+      if (data) setGoals(data);
     } catch (error) {
       console.error('Failed to fetch goals');
     }
@@ -128,15 +121,8 @@ export default function DashboardScreen() {
   const fetchTransactions = async () => {
     if (!user) return;
     try {
-      const response = await fetch(`${API_URL}/transactions`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setTransactions(data);
-      }
+      const { data } = await api.get('/transactions');
+      if (data) setTransactions(data.transactions || data);
     } catch (error) {
       console.error('Failed to fetch transactions');
     }
@@ -145,15 +131,8 @@ export default function DashboardScreen() {
   const fetchBills = async () => {
     if (!user) return;
     try {
-      const response = await fetch(`${API_URL}/bills/${user.id || user._id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setBills(data);
-      }
+      const { data } = await api.get('/bills');
+      if (data) setBills(data);
     } catch (error) {
       console.error('Failed to fetch bills');
     }
@@ -162,11 +141,8 @@ export default function DashboardScreen() {
   const fetchHealthScore = async () => {
     if (!user) return;
     try {
-      const response = await fetch(`${API_URL}/health-score/${user.id || user._id}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await response.json();
-      if (response.ok) setHealthScore(data);
+      const { data } = await api.get('/health-score');
+      if (data) setHealthScore(data);
     } catch {
       // silent — card just won't render
     }
@@ -175,13 +151,8 @@ export default function DashboardScreen() {
   const fetchUserStats = async () => {
     if (!user) return;
     try {
-      const response = await fetch(`${API_URL}/users/${user.id || user._id}/stats`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const data = await response.json();
-      if (response.ok) {
+      const { data } = await api.get(`/users/${user.id || user._id}/stats`);
+      if (data) {
         setDashboardData(prev => ({ ...prev, streak: data.streak || 0 }));
         setUserAchievements(data.achievements || {
           budgetMaster: false,
@@ -198,14 +169,10 @@ export default function DashboardScreen() {
   const syncStatsToBackend = async (streak: number, achievements: any) => {
     if (!user) return;
     try {
-      await fetch(`${API_URL}/users/${user.id || user._id}/stats`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          streak,
-          lastActivityDate: new Date(),
-          achievements
-        })
+      await api.patch(`/users/${user.id || user._id}/stats`, {
+        streak,
+        lastActivityDate: new Date(),
+        achievements
       });
     } catch (error) {
       console.error('Failed to sync stats');
@@ -347,13 +314,11 @@ export default function DashboardScreen() {
     if (!selectedGoal || !addAmount) return;
     setIsUpdating(true);
     try {
-      const response = await fetch(`${API_URL}/savings-goals/${selectedGoal._id || selectedGoal.id}/add-funds`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: parseFloat(parseAmount(addAmount)) })
+      const { error } = await api.patch(`/savings-goals/${selectedGoal._id || selectedGoal.id}/add-funds`, {
+        amount: parseFloat(parseAmount(addAmount))
       });
-      if (response.ok) {
-        fetchGoals(); // Refresh goals
+      if (!error) {
+        fetchGoals();
         setAddFundsModalVisible(false);
         setAddAmount('');
         setSelectedGoal(null);
@@ -713,23 +678,16 @@ export default function DashboardScreen() {
                                       // Create Income Transaction and Delete Goal
                                       try {
                                         // 1. Create Income
-                                        await fetch(`${API_URL}/transactions`, {
-                                          method: 'POST',
-                                          headers: { 'Content-Type': 'application/json' },
-                                          body: JSON.stringify({
-                                            userId: user.id || user._id,
-                                            type: 'income',
-                                            amount: parseFloat(goal.currentAmount),
-                                            category: 'Savings',
-                                            date: new Date(),
-                                            note: `Recovered from ${goal.name}`
-                                          })
+                                        await api.post('/transactions', {
+                                          type: 'income',
+                                          amount: parseFloat(goal.currentAmount),
+                                          category: 'Savings',
+                                          date: new Date(),
+                                          note: `Recovered from ${goal.name}`
                                         });
 
                                         // 2. Delete Goal
-                                        await fetch(`${API_URL}/savings-goals/${goal._id || goal.id}`, {
-                                          method: 'DELETE'
-                                        });
+                                        await api.delete(`/savings-goals/${goal._id || goal.id}`);
 
                                         fetchGoals(); // Refresh
                                       } catch (error) {
@@ -950,7 +908,7 @@ export default function DashboardScreen() {
               <Text style={styles.modalSubtitle}>Adding funds to {selectedGoal?.name}</Text>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.currencyPrefix}>$</Text>
+                <Text style={styles.currencyPrefix}>{currency.symbol}</Text>
                 <TextInput
                   style={styles.amountInput}
                   placeholder="0.00"

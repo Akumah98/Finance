@@ -1,6 +1,6 @@
 
 import { colors } from "@/constants/colors";
-import { API_URL } from "@/constants/config";
+import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -37,9 +37,8 @@ export default function ChatScreen() {
 
     const fetchHistory = async () => {
         try {
-            const response = await fetch(`${API_URL}/chat/${user.id || user._id}`);
-            const data = await response.json();
-            if (response.ok) {
+            const { data, error } = await api.get('/chat');
+            if (data) {
                 setMessages(data);
                 setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
             }
@@ -55,7 +54,7 @@ export default function ChatScreen() {
                 text: 'Clear', style: 'destructive', onPress: async () => {
                     setIsClearing(true);
                     try {
-                        await fetch(`${API_URL}/chat/${user.id || user._id}`, { method: 'DELETE' });
+                        await api.delete('/chat');
                         setMessages([]);
                     } catch {
                         Alert.alert('Error', 'Failed to clear chat');
@@ -76,13 +75,8 @@ export default function ChatScreen() {
         setIsLoading(true);
 
         try {
-            const response = await fetch(`${API_URL}/chat`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: user.id || user._id, text: userMsg.text })
-            });
-            const aiMsg = await response.json();
-            if (response.ok) {
+            const { data: aiMsg, error } = await api.post('/chat', { text: userMsg.text });
+            if (aiMsg) {
                 setMessages(prev => [...prev, aiMsg]);
             }
         } catch (error) {

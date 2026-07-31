@@ -1,5 +1,5 @@
 import { colors } from "@/constants/colors";
-import { API_URL } from "@/constants/config";
+import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import { useOffline } from "@/context/OfflineContext";
@@ -48,13 +48,8 @@ export default function AddBillScreen() {
     useEffect(() => {
         const fetchCategories = async () => {
             try {
-                const response = await fetch(`${API_URL}/categories/${user.id || user._id}`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-                const data = await response.json();
-                if (response.ok) {
+                const { data } = await api.get('/categories');
+                if (data) {
                     setCategories(data);
                     if (initialCategory) {
                         const cat = data.find((c: any) => c.name === initialCategory && c.type === 'expense');
@@ -98,28 +93,21 @@ export default function AddBillScreen() {
                     { text: 'OK', onPress: () => router.back() }
                 ]);
             } else {
-                const url = isEditing ? `${API_URL}/bills/${id}` : `${API_URL}/bills`;
-                const method = isEditing ? 'PUT' : 'POST';
+                const billData = {
+                    name,
+                    amount: parseFloat(parseAmount(amount)),
+                    frequency,
+                    dueDate: date,
+                    category: categories.find(c => (c._id || c.id) === selectedCategory)?.name || 'Other',
+                    autoPay: false,
+                    reason: isEditing ? reason : undefined
+                };
 
-                const response = await fetch(url, {
-                    method,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({
-                        userId: user.id || user._id,
-                        name,
-                        amount: parseFloat(parseAmount(amount)),
-                        frequency,
-                        dueDate: date,
-                        category: categories.find(c => (c._id || c.id) === selectedCategory)?.name || 'Other',
-                        autoPay: false,
-                        reason: isEditing ? reason : undefined
-                    }),
-                });
+                const { error } = isEditing
+                    ? await api.put(`/bills/${id}`, billData)
+                    : await api.post('/bills', billData);
 
-                if (response.ok) {
+                if (!error) {
                     Alert.alert('Success', `Bill ${isEditing ? 'updated' : 'added'} successfully`, [
                         { text: 'OK', onPress: () => router.back() }
                     ]);
@@ -137,15 +125,8 @@ export default function AddBillScreen() {
     const confirmDelete = async () => {
         setIsSubmitting(true);
         try {
-            const response = await fetch(`${API_URL}/bills/${id}`, {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ reason: deleteReason }),
-            });
-            if (response.ok) {
+            const { error } = await api.delete(`/bills/${id}`, { reason: deleteReason });
+            if (!error) {
                 Alert.alert('Deleted', 'Bill deleted successfully', [
                     { text: 'OK', onPress: () => router.back() }
                 ]);

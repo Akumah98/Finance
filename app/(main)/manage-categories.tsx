@@ -1,6 +1,6 @@
 import { colors } from "@/constants/colors";
-import { API_URL } from "@/constants/config";
 import { useAuth } from "@/context/AuthContext";
+import { api } from "@/lib/api";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
@@ -19,9 +19,8 @@ export default function ManageCategoriesScreen() {
 
     const fetchCategories = async () => {
         try {
-            const response = await fetch(`${API_URL}/categories/${user.id || user._id}`);
-            const data = await response.json();
-            if (response.ok) {
+            const { data, error } = await api.get('/categories');
+            if (!error && data) {
                 setCategories(data);
             }
         } catch (error) {
@@ -37,19 +36,14 @@ export default function ManageCategoriesScreen() {
         if (!newCategoryName.trim()) return;
 
         try {
-            const response = await fetch(`${API_URL}/categories`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userId: user.id || user._id,
-                    name: newCategoryName,
-                    type: newCategoryType,
-                    icon: 'shape', // Default icon
-                    color: newCategoryType === 'expense' ? '#EF4444' : '#10B981' // Default colors
-                })
+            const { error } = await api.post('/categories', {
+                name: newCategoryName,
+                type: newCategoryType,
+                icon: 'shape', // Default icon
+                color: newCategoryType === 'expense' ? '#EF4444' : '#10B981' // Default colors
             });
 
-            if (response.ok) {
+            if (!error) {
                 setNewCategoryName('');
                 setModalVisible(false);
                 fetchCategories();
@@ -69,7 +63,7 @@ export default function ManageCategoriesScreen() {
                 style: 'destructive',
                 onPress: async () => {
                     try {
-                        await fetch(`${API_URL}/categories/${id}`, { method: 'DELETE' });
+                        await api.delete(`/categories/${id}`);
                         fetchCategories();
                     } catch (error) {
                         Alert.alert('Error', 'Failed to delete category');

@@ -1,11 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const Budget = require('../models/Budget');
+const { protect } = require('../middleware/authMiddleware');
 
-// Get all budgets for a user
-router.get('/:userId', async (req, res) => {
+router.use(protect);
+
+// Get all budgets for the authenticated user
+router.get('/', async (req, res) => {
     try {
-        const budgets = await Budget.find({ userId: req.params.userId });
+        const budgets = await Budget.find({ userId: req.user._id });
         res.json(budgets);
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -14,7 +17,8 @@ router.get('/:userId', async (req, res) => {
 
 // Create or update a budget
 router.post('/', async (req, res) => {
-    const { userId, category, amount, period } = req.body;
+    const { category, amount, period } = req.body;
+    const userId = req.user._id;
 
     try {
         // Check if budget already exists for this category

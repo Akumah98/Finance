@@ -1,4 +1,5 @@
 import { colors } from "@/constants/colors";
+import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import { Ionicons } from "@expo/vector-icons";
@@ -116,9 +117,70 @@ export default function SettingsScreen() {
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Data</Text>
-            <SettingItem icon="download-outline" label="Export Data (CSV/PDF)" />
-            <SettingItem icon="cloud-upload-outline" label="Backup & Sync" value="On" />
+            <Text style={styles.sectionTitle}>Data & AI</Text>
+            <TouchableOpacity onPress={() => {
+              Alert.alert('Export Data', 'Choose what to export:', [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'All Transactions', onPress: async () => {
+                  try {
+                    const { data, error } = await api.get('/export/transactions');
+                    if (error) {
+                      Alert.alert('Error', error);
+                    } else {
+                      Alert.alert('Export Ready', 'Your transaction data has been prepared. In a future update, this will save to your device. For now, use the API endpoint directly: /api/export/transactions');
+                    }
+                  } catch {
+                    Alert.alert('Error', 'Export failed');
+                  }
+                }},
+                { text: 'Monthly Summary', onPress: async () => {
+                  try {
+                    const { data, error } = await api.get('/export/summary');
+                    if (error) {
+                      Alert.alert('Error', error);
+                    } else {
+                      Alert.alert('Export Ready', 'Your monthly summary has been prepared.');
+                    }
+                  } catch {
+                    Alert.alert('Error', 'Export failed');
+                  }
+                }}
+              ]);
+            }}>
+              <View style={styles.settingItem}>
+                <View style={styles.settingIcon}>
+                  <Ionicons name="download-outline" size={20} color={colors.text} />
+                </View>
+                <Text style={styles.settingLabel}>Export Data (CSV)</Text>
+                <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={async () => {
+              Alert.alert('Enable Smart Search', 'This will process your existing transactions and chat history for AI-powered search. It may take a moment.', [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Start', onPress: async () => {
+                  try {
+                    const { data } = await api.post('/embeddings/backfill', { type: 'all', batchSize: 50 });
+                    if (data) {
+                      Alert.alert('Done', `Processed ${data.processed} items. Remaining: ${data.remaining.transactions} transactions, ${data.remaining.messages} messages.${data.remaining.transactions + data.remaining.messages > 0 ? ' Run again to process more.' : ''}`);
+                    }
+                  } catch {
+                    Alert.alert('Error', 'Failed to process data. Try again later.');
+                  }
+                }}
+              ]);
+            }}>
+              <View style={styles.settingItem}>
+                <View style={styles.settingIcon}>
+                  <Ionicons name="sparkles" size={20} color={colors.accent} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.settingLabel}>Enable Smart Search</Text>
+                  <Text style={{ color: colors.textMuted, fontSize: 12 }}>Process data for AI search & suggestions</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+              </View>
+            </TouchableOpacity>
           </View>
 
 
@@ -126,7 +188,7 @@ export default function SettingsScreen() {
             <Text style={styles.logoutText}>Log Out</Text>
           </TouchableOpacity>
 
-          <Text style={styles.version}>Version 1.0.0 (Build 2025)</Text>
+          <Text style={styles.version}>Version 2.0.0 (Build 2026)</Text>
 
         </ScrollView>
 

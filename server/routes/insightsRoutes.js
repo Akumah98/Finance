@@ -2,27 +2,112 @@ const express = require('express');
 const router = express.Router();
 const Transaction = require('../models/Transaction');
 const Budget = require('../models/Budget');
+const Bill = require('../models/Bill');
+const SavingsGoal = require('../models/SavingsGoal');
 const { analyzeSpending } = require('../utils/spendingAnalysis');
+const { generateAIInsights } = require('../services/aiInsightsService');
+const { protect } = require('../middleware/authMiddleware');
 
-// Get insights for a user
-router.get('/:userId', async (req, res) => {
+router.use(protect);
+
+router.get('/', async (req, res) => {
     try {
-        // Fetch user's transactions
-        const transactions = await Transaction.find({ userId: req.params.userId }).sort({ date: -1 });
+        const userId = req.user._id;
+        const now = new Date();
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
 
-        // Fetch user's budgets
-        const budgetDocs = await Budget.find({ userId: req.params.userId });
+        const threeMonthsAgo = new Date();
+        threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
 
-        // Convert to object format { category: amount }
+        const [transactions, budgetDocs, bills, goals] = await Promise.all([
+            Transaction.find({ userId, date: { $gte: threeMonthsAgo } })
+                .sort({ date: -1 })
+                .select('-embedding')
+                .lean(),
+            Budget.find({ userId }).lean(),
+            Bill.find({ userId, isPaid: false }).sort({ dueDate: 1 }).limit(10).lean(),
+            SavingsGoal.find({ userId }).lean()
+        ]);
+
         const budgets = {};
-        budgetDocs.forEach(b => {
-            budgets[b.category] = b.amount;
+        budgetDocs.forEach(b => { budgets[b.category] = b.amount; });
+
+        const thisMonthTransactions = transactions.filter(t => {
+            const d = new Date(t.date);
+            return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
         });
 
-        // Analyze spending and generate insights
-        const insights = analyzeSpending(transactions, budgets);
+        const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+        const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+        const lastMonthTransactions = transactions.filter(t => {
+            const d = new Date(t.date);
+            return d.getMonth() === lastMonth && d.getFullYear() === lastMonthYear;
+        });
 
-        res.json(insights);
+        const categorySpending = {};
+        thisMonthTransactions.forEach(t => {
+            if (t.type === 'expense') {
+                categorySpending[t.category] = (categorySpending[t.category] || 0) + t.amount;
+            }
+        });
+
+        const lastMonthCategorySpending = {};
+        lastMonthTransactions.forEach(t => {
+            if (t.type === 'expense') {
+                lastMonthCategorySpending[t.category] = (lastMonthCategorySpending[t.category] || 0) + t.amount;
+            }
+        });
+
+        const totalIncome = thisMonthTransactions
+            .filter(t => t.type === 'income')
+            .reduce((s, t) => s + t.amount, 0);
+
+        const totalExpenses = thisMonthTransactions
+            .filter(t => t.type === 'expense')
+            .reduce((s, t) => s + t.amount, 0);
+
+        const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome) * 100 : 0;
+
+        // Generate rule-based insights as fallback
+        const ruleBasedInsights = analyzeSpending(transactions, budgets);
+
+        // Try AI-powered insights
+        const aiResult = await generateAIInsights({
+            totalIncome,
+            totalExpenses,
+            savingsRate,
+            categorySpending,
+            lastMonthCategorySpending,
+            budgets,
+            recentTransactions: thisMonthTransactions.slice(0, 20),
+            billsUpcoming: bills,
+            goals: goals || []
+        });
+
+        if (aiResult.success) {
+            const ai = aiResult.insights;
+
+            res.json({
+                weeklySummary: ai.weeklySummary || ruleBasedInsights.weeklySummary,
+                overspendingAlerts: ruleBasedInsights.overspendingAlerts,
+                recommendations: ai.recommendations || ruleBasedInsights.recommendations.map(r => ({ text: r, savings: null, priority: 'medium' })),
+                budgets: ruleBasedInsights.budgets,
+                cashFlowForecast: ruleBasedInsights.cashFlowForecast,
+                anomalies: ai.anomalies || [],
+                predictiveBudget: ai.predictiveBudget || null,
+                score: ai.score || null,
+                aiPowered: true
+            });
+        } else {
+            res.json({
+                ...ruleBasedInsights,
+                anomalies: [],
+                predictiveBudget: null,
+                score: null,
+                aiPowered: false
+            });
+        }
     } catch (err) {
         console.error('Error generating insights:', err);
         res.status(500).json({ message: err.message });

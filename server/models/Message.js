@@ -15,6 +15,10 @@ const MessageSchema = new mongoose.Schema({
         enum: ['user', 'assistant'],
         required: true
     },
+    embedding: {
+        type: [Number],
+        default: undefined
+    },
     createdAt: {
         type: Date,
         default: Date.now

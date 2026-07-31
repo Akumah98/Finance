@@ -487,7 +487,7 @@ const Onboarding = () => {
             <TouchableOpacity
               style={styles.skipButton}
               activeOpacity={0.8}
-              onPress={() => console.log('Skip')}
+              onPress={() => router.push('/(auth)/login')}
             >
               <BlurView intensity={10} tint="dark" style={styles.skipBlur}>
                 <Text style={styles.skipText}>Skip</Text>

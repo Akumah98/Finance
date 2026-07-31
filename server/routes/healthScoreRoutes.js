@@ -4,26 +4,26 @@ const Transaction = require('../models/Transaction');
 const Budget = require('../models/Budget');
 const Bill = require('../models/Bill');
 const SavingsGoal = require('../models/SavingsGoal');
+const { protect } = require('../middleware/authMiddleware');
 
-// GET /api/health-score/:userId
-router.get('/:userId', async (req, res) => {
+router.use(protect);
+
+// GET /api/health-score
+router.get('/', async (req, res) => {
     try {
-        const { userId } = req.params;
+        const userId = req.user._id;
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
         const [transactions, budgets, bills, goals] = await Promise.all([
-            Transaction.find({ userId }),
+            Transaction.find({ userId, date: { $gte: startOfMonth, $lte: endOfMonth } }),
             Budget.find({ userId }),
             Bill.find({ userId }),
             SavingsGoal.find({ userId }),
         ]);
 
-        const thisMonthTxns = transactions.filter(t => {
-            const d = new Date(t.date);
-            return d >= startOfMonth && d <= endOfMonth;
-        });
+        const thisMonthTxns = transactions;
 
         const monthlyIncome = thisMonthTxns
             .filter(t => t.type === 'income')

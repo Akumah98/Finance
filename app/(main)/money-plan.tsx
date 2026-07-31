@@ -1,5 +1,5 @@
-import { API_URL } from "@/constants/config";
 import { useAuth } from "@/context/AuthContext";
+import { api } from "@/lib/api";
 import { useCurrency } from "@/context/CurrencyContext";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
@@ -94,7 +94,7 @@ const BUCKET_CONFIG = [
 
 export default function MoneyPlanScreen() {
   const router = useRouter();
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   const { formatAmount } = useCurrency();
 
   const [data, setData] = useState<MoneyPlanData | null>(null);
@@ -113,11 +113,8 @@ export default function MoneyPlanScreen() {
   const fetchPlan = async () => {
     if (!userId) return;
     try {
-      const res = await fetch(`${API_URL}/money-plan/${userId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const json = await res.json();
+      const { data: json, error } = await api.get('/money-plan');
+      if (!error && json) {
         setData(json);
         setEditNeeds(String(json.plan.needsPct));
         setEditWants(String(json.plan.wantsPct));
@@ -152,19 +149,12 @@ export default function MoneyPlanScreen() {
     }
     setSaving(true);
     try {
-      const res = await fetch(`${API_URL}/money-plan/${userId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          needsPct: Number(editNeeds),
-          wantsPct: Number(editWants),
-          futurePct: Number(editFuture),
-        }),
+      const { error } = await api.put('/money-plan', {
+        needsPct: Number(editNeeds),
+        wantsPct: Number(editWants),
+        futurePct: Number(editFuture),
       });
-      if (res.ok) {
+      if (!error) {
         setSettingsVisible(false);
         fetchPlan();
       }

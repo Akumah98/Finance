@@ -1,15 +1,21 @@
 const express = require('express');
 const router = express.Router();
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 const Transaction = require('../models/Transaction');
 const Budget = require('../models/Budget');
 const Bill = require('../models/Bill');
 const MoneyPlan = require('../models/MoneyPlan');
+const { protect } = require('../middleware/authMiddleware');
 
-// GET /api/monthly-review/:userId?year=2026&month=6
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+router.use(protect);
+
+// GET /api/monthly-review?year=2026&month=6
 // month is 0-indexed (0 = January, 6 = July) matching JS Date convention
-router.get('/:userId', async (req, res) => {
+router.get('/', async (req, res) => {
     try {
-        const { userId } = req.params;
+        const userId = req.user._id;
         const now = new Date();
 
         // Default to current month; allow override via query params
@@ -136,6 +142,25 @@ router.get('/:userId', async (req, res) => {
             return `Excellent month! Keep the same habits and consider increasing your Future allocation by 5%.`;
         };
 
+        // ── AI Narrative (fire-and-forget safe — non-blocking) ───────────
+        let aiNarrative = null;
+        try {
+            if (transactions.length > 0) {
+                const topCats = categoryList.slice(0, 5).map(c => `${c.category}: ${c.amount.toFixed(0)}${c.budget ? ` (budget: ${c.budget})` : ''}`).join(', ');
+                const prompt = `You are a concise personal finance coach. Write a 2-3 sentence monthly review summary for the user. Be encouraging, specific, and actionable.
+
+Data: Income ${totalIncome.toFixed(0)}, Expenses ${totalExpenses.toFixed(0)}, Savings rate ${savingsRate.toFixed(1)}%. Top spending: ${topCats}. ${topWin ? `Best category: ${topWin.category} (under budget by ${(topWin.budget - topWin.amount).toFixed(0)}).` : ''} ${topMiss ? `Worst: ${topMiss.category} (over by ${topMiss.overBy.toFixed(0)}).` : ''} Bills: ${paidBills}/${monthBills.length} paid${missedBills > 0 ? `, ${missedBills} missed` : ''}.
+
+Write ONLY the narrative — no JSON, no formatting, just plain text.`;
+
+                const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' });
+                const result = await model.generateContent(prompt);
+                aiNarrative = result.response.text().trim();
+            }
+        } catch (err) {
+            console.error('AI narrative generation failed:', err.message);
+        }
+
         res.json({
             period: {
                 year,
@@ -160,6 +185,7 @@ router.get('/:userId', async (req, res) => {
                 missed: missedBills,
             },
             tip: getTip(),
+            aiNarrative,
             hasPlan: !!plan,
         });
     } catch (err) {

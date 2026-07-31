@@ -1,5 +1,5 @@
 import { colors } from '@/constants/colors';
-import { API_URL } from '@/constants/config';
+import { api } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -39,13 +39,8 @@ export default function ProfileScreen() {
 
     const fetchStats = async () => {
         try {
-            const response = await fetch(`${API_URL}/users/${user.id}/stats`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            const data = await response.json();
-            if (response.ok) {
-                setStats(data);
-            }
+            const { data } = await api.get(`/users/${user.id}/stats`);
+            if (data) setStats(data);
         } catch (error) {
             console.error('Failed to fetch stats:', error);
         }
@@ -59,18 +54,9 @@ export default function ProfileScreen() {
 
         setIsSaving(true);
         try {
-            const response = await fetch(`${API_URL}/users/${user.id}/profile`, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ userName, email }),
-            });
+            const { data, error } = await api.patch(`/users/${user.id}/profile`, { userName, email });
 
-            const data = await response.json();
-
-            if (response.ok) {
+            if (!error && data) {
                 // Update local context
                 // Assuming AuthContext's register or login function can update the state, 
                 // or we manually update it if exposed. 

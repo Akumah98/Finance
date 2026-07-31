@@ -1,15 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const Category = require('../models/Category');
+const { protect } = require('../middleware/authMiddleware');
 
-// Middleware to verify token (we'll implement a proper middleware later, 
-// for now we'll assume the frontend sends the userId or we extract it from token if we add auth middleware)
-// Ideally, we should use the auth middleware here.
+router.use(protect);
 
-// Get all categories for a user (Auto-seed defaults if empty)
-router.get('/:userId', async (req, res) => {
+// Get all categories for the authenticated user (Auto-seed defaults if empty)
+router.get('/', async (req, res) => {
     try {
-        let categories = await Category.find({ userId: req.params.userId });
+        let categories = await Category.find({ userId: req.user._id });
 
         if (categories.length === 0) {
             const defaultCategories = [
@@ -27,7 +26,7 @@ router.get('/:userId', async (req, res) => {
                 { name: 'Other', icon: 'dots-horizontal', type: 'income', color: '#6B7280' }
             ];
 
-            const categoriesToInsert = defaultCategories.map(cat => ({ ...cat, userId: req.params.userId }));
+            const categoriesToInsert = defaultCategories.map(cat => ({ ...cat, userId: req.user._id }));
             categories = await Category.insertMany(categoriesToInsert);
         }
 
@@ -39,11 +38,11 @@ router.get('/:userId', async (req, res) => {
 
 // Create a new category
 router.post('/', async (req, res) => {
-    const { userId, name, icon, color, type } = req.body;
+    const { name, icon, color, type } = req.body;
 
     try {
         const newCategory = new Category({
-            userId,
+            userId: req.user._id,
             name,
             icon,
             color,

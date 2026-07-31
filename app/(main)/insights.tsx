@@ -1,4 +1,4 @@
-import { API_URL } from "@/constants/config";
+import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -21,30 +21,6 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 const { width } = Dimensions.get("window");
 
-const insightsData = {
-  weeklySummary:
-    "Great momentum! You're spending 18% less on Dining Out this week. If you keep this up, you'll hit your savings goal 3 weeks early.",
-  overspendingAlerts: [
-    { category: "Shopping", overBy: 67, budget: 300, icon: "shopping" },
-    { category: "Entertainment", overBy: 32, budget: 120, icon: "gamepad-2" },
-  ],
-  recommendations: [
-    "Switch to a cheaper phone plan → Save $48/month",
-    "Cancel 'HBO Max' (last used 72 days ago) → Save $15.99",
-    "Cook 3 dinners at home this week → Save ~$85",
-  ],
-  cashFlowForecast: {
-    current: 12850,
-    projected: 14290,
-    trend: "positive",
-  },
-  budgets: [
-    { category: "Dining Out", spent: 168, total: 350, color: "#10B981" },
-    { category: "Groceries", spent: 412, total: 600, color: "#3B82F6" },
-    { category: "Transport", spent: 94, total: 200, color: "#8B5CF6" },
-    { category: "Shopping", spent: 367, total: 300, color: "#EF4444" },
-  ],
-};
 
 const InsightsScreen = () => {
   const router = useRouter();
@@ -56,9 +32,8 @@ const InsightsScreen = () => {
   const fetchInsights = async () => {
     if (!user) return;
     try {
-      const response = await fetch(`${API_URL}/insights/${user.id || user._id}`);
-      const data = await response.json();
-      if (response.ok) {
+      const { data, error } = await api.get('/insights');
+      if (data) {
         setInsightsData(data);
       }
     } catch (error) {
@@ -288,20 +263,117 @@ const InsightsScreen = () => {
             </Animated.View>
           )}
 
-          {/* 5. Personalized Recommendations */}
-          <Animated.View entering={FadeInDown.delay(600).duration(600)} style={styles.section}>
-            <Text style={styles.sectionTitle}>Smart Recommendations</Text>
-            <BlurView intensity={70} style={[styles.recCard, { flexDirection: 'column', alignItems: 'center', padding: 32, gap: 16 }]}>
-              <View style={[styles.recIcon, { width: 64, height: 64, borderRadius: 32, backgroundColor: "rgba(245, 158, 11, 0.2)" }]}>
-                <Ionicons name="sparkles" size={32} color="#F59E0B" />
-              </View>
-              <View style={{ alignItems: 'center', gap: 8 }}>
-                <Text style={{ color: "#FFFFFF", fontSize: 18, fontWeight: "700" }}>Coming Soon</Text>
-                <Text style={{ color: "#94A3B8", fontSize: 14, textAlign: 'center', lineHeight: 22 }}>
-                  AI-powered smart recommendations are on the way! We're training our models to give you personalized financial advice.
+          {/* 5. Financial Health Score */}
+          {insightsData.score && (
+            <Animated.View entering={FadeInDown.delay(500).duration(600)} style={styles.section}>
+              <Text style={styles.sectionTitle}>Financial Health</Text>
+              <BlurView intensity={80} style={styles.glassCard}>
+                <View style={styles.scoreContainer}>
+                  <View style={styles.scoreCircle}>
+                    <Text style={styles.scoreValue}>{insightsData.score.value}</Text>
+                    <Text style={styles.scoreMax}>/100</Text>
+                  </View>
+                  <View style={styles.scoreDetails}>
+                    <Text style={styles.scoreLabel}>{insightsData.score.label}</Text>
+                    <Text style={styles.scoreTip}>{insightsData.score.tip}</Text>
+                  </View>
+                </View>
+              </BlurView>
+            </Animated.View>
+          )}
+
+          {/* 6. Anomaly Detection */}
+          {insightsData.anomalies && insightsData.anomalies.length > 0 && (
+            <Animated.View entering={FadeInDown.delay(600).duration(600)} style={styles.section}>
+              <Text style={styles.sectionTitle}>Unusual Activity</Text>
+              {insightsData.anomalies.map((anomaly: any, i: number) => (
+                <BlurView key={i} intensity={70} style={styles.anomalyCard}>
+                  <View style={styles.anomalyIcon}>
+                    <Ionicons
+                      name={anomaly.severity === 'warning' ? 'alert-circle' : 'information-circle'}
+                      size={24}
+                      color={anomaly.severity === 'warning' ? '#F59E0B' : '#3B82F6'}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.anomalyCategory}>{anomaly.category}</Text>
+                    <Text style={styles.anomalyDescription}>{anomaly.description}</Text>
+                  </View>
+                  {anomaly.amount > 0 && (
+                    <Text style={styles.anomalyAmount}>{formatAmount(anomaly.amount)}</Text>
+                  )}
+                </BlurView>
+              ))}
+            </Animated.View>
+          )}
+
+          {/* 7. Predictive Budget */}
+          {insightsData.predictiveBudget && (
+            <Animated.View entering={FadeInDown.delay(700).duration(600)} style={styles.section}>
+              <Text style={styles.sectionTitle}>Month-End Projection</Text>
+              <BlurView intensity={80} style={styles.glassCard}>
+                <View style={styles.projectionRow}>
+                  <View style={styles.projectionIcon}>
+                    <Ionicons name="telescope" size={24} color="#A78BFA" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.projectionLabel}>Projected End Balance</Text>
+                    <Text style={[styles.projectionAmount, {
+                      color: insightsData.predictiveBudget.projectedEndOfMonth >= 0 ? '#10B981' : '#EF4444'
+                    }]}>
+                      {formatAmount(Math.abs(insightsData.predictiveBudget.projectedEndOfMonth))}
+                      {insightsData.predictiveBudget.projectedEndOfMonth < 0 ? ' deficit' : ' surplus'}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.projectionSuggestion}>
+                  {insightsData.predictiveBudget.suggestion}
                 </Text>
-              </View>
-            </BlurView>
+              </BlurView>
+            </Animated.View>
+          )}
+
+          {/* 8. AI Recommendations */}
+          <Animated.View entering={FadeInDown.delay(800).duration(600)} style={styles.section}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={styles.sectionTitle}>Smart Recommendations</Text>
+              {insightsData.aiPowered && (
+                <View style={styles.aiBadge}>
+                  <Ionicons name="sparkles" size={12} color="#A78BFA" />
+                  <Text style={styles.aiBadgeText}>AI</Text>
+                </View>
+              )}
+            </View>
+            {insightsData.recommendations && insightsData.recommendations.length > 0 ? (
+              insightsData.recommendations.map((rec: any, i: number) => {
+                const isObject = typeof rec === 'object';
+                const text = isObject ? rec.text : rec;
+                const savings = isObject ? rec.savings : null;
+                const priority = isObject ? rec.priority : 'medium';
+                return (
+                  <BlurView key={i} intensity={70} style={styles.recCard}>
+                    <View style={[styles.recIcon, {
+                      backgroundColor: priority === 'high' ? 'rgba(239, 68, 68, 0.2)' :
+                        priority === 'medium' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(16, 185, 129, 0.2)'
+                    }]}>
+                      <Ionicons
+                        name={priority === 'high' ? 'flash' : priority === 'medium' ? 'bulb' : 'leaf'}
+                        size={20}
+                        color={priority === 'high' ? '#EF4444' : priority === 'medium' ? '#F59E0B' : '#10B981'}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.recText}>{text}</Text>
+                      {savings && <Text style={styles.recSavings}>Potential savings: {savings}</Text>}
+                    </View>
+                  </BlurView>
+                );
+              })
+            ) : (
+              <BlurView intensity={70} style={[styles.recCard, { justifyContent: 'center', padding: 24 }]}>
+                <Text style={{ color: '#94A3B8', textAlign: 'center' }}>Add more transactions to get personalized recommendations</Text>
+              </BlurView>
+            )}
           </Animated.View>
 
 
@@ -419,6 +491,32 @@ const styles = StyleSheet.create({
   },
   recIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: "#F59E0B20", justifyContent: "center", alignItems: "center", marginRight: 16 },
   recText: { flex: 1, color: "#E2E8F0", fontSize: 15, lineHeight: 22 },
+  recSavings: { color: "#10B981", fontSize: 13, marginTop: 4, fontWeight: "600" },
+  aiBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(139, 92, 246, 0.2)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  aiBadgeText: { color: '#A78BFA', fontSize: 11, fontWeight: '700' },
+
+  // Health Score
+  scoreContainer: { flexDirection: 'row', alignItems: 'center', gap: 20 },
+  scoreCircle: { width: 80, height: 80, borderRadius: 40, borderWidth: 3, borderColor: '#8B5CF6', justifyContent: 'center', alignItems: 'baseline', flexDirection: 'row' },
+  scoreValue: { color: '#FFFFFF', fontSize: 28, fontWeight: '900' },
+  scoreMax: { color: '#94A3B8', fontSize: 14 },
+  scoreDetails: { flex: 1 },
+  scoreLabel: { color: '#FFFFFF', fontSize: 18, fontWeight: '700', marginBottom: 4 },
+  scoreTip: { color: '#94A3B8', fontSize: 14, lineHeight: 20 },
+
+  // Anomalies
+  anomalyCard: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 16, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(245, 158, 11, 0.2)' },
+  anomalyIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(245, 158, 11, 0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  anomalyCategory: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
+  anomalyDescription: { color: '#94A3B8', fontSize: 13, marginTop: 2 },
+  anomalyAmount: { color: '#F59E0B', fontSize: 15, fontWeight: '700' },
+
+  // Predictive Budget
+  projectionRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  projectionIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(139, 92, 246, 0.15)', justifyContent: 'center', alignItems: 'center', marginRight: 14 },
+  projectionLabel: { color: '#94A3B8', fontSize: 13 },
+  projectionAmount: { fontSize: 20, fontWeight: '800', marginTop: 2 },
+  projectionSuggestion: { color: '#CBD5E1', fontSize: 14, lineHeight: 20, paddingLeft: 58 },
 
   // Empty States
   emptyStateCard: {

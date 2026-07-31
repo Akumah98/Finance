@@ -1,8 +1,8 @@
-import { API_URL } from '@/constants/config';
+import { api } from '@/lib/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Network from 'expo-network';
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { useAuth } from './AuthContext';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 
 interface QueueItem {
     id: string;
@@ -32,7 +32,7 @@ export const useOffline = () => useContext(OfflineContext);
 export const OfflineProvider = ({ children }: { children: React.ReactNode }) => {
     const [isOffline, setIsOffline] = useState(false);
     const [queue, setQueue] = useState<QueueItem[]>([]);
-    const { user } = useAuth(); // Need user for API calls if required, though payload usually has it
+    const wasOffline = useRef(false);
 
     // Load queue on mount
     useEffect(() => {
@@ -62,17 +62,40 @@ export const OfflineProvider = ({ children }: { children: React.ReactNode }) => 
         saveQueue();
     }, [queue]);
 
+    // Auto-sync when coming back online or app returns to foreground
+    useEffect(() => {
+        const interval = setInterval(async () => {
+            const offline = await checkConnection();
+            if (wasOffline.current && !offline && queue.length > 0) {
+                setTimeout(() => processQueue(), 2000);
+            }
+            wasOffline.current = offline;
+        }, 10000);
+
+        const subscription = AppState.addEventListener('change', async (state) => {
+            if (state === 'active') {
+                const offline = await checkConnection();
+                if (!offline && queue.length > 0) {
+                    setTimeout(() => processQueue(), 2000);
+                }
+            }
+        });
+
+        return () => {
+            clearInterval(interval);
+            subscription.remove();
+        };
+    }, [queue]);
+
     const checkConnection = async () => {
         try {
             const state = await Network.getNetworkStateAsync();
-            // Consider offline if not connected or not internet reachable (and not null)
-            // But sometimes isInternetReachable is null on some simulators, so default to true if connected
             const offline = !(state.isConnected && (state.isInternetReachable ?? true));
             setIsOffline(offline);
             return offline;
         } catch (e) {
             console.error('Failed to check connection', e);
-            return false; // Assume online if check fails? Or offline?
+            return false;
         }
     };
 
@@ -89,38 +112,26 @@ export const OfflineProvider = ({ children }: { children: React.ReactNode }) => 
     const processQueue = async () => {
         const isStillOffline = await checkConnection();
         if (isStillOffline) return;
-
         if (queue.length === 0) return;
 
-        // Process sequentially
-        const remainingQueue = [...queue];
         const processedIds: string[] = [];
 
         for (const item of queue) {
             try {
-                let url = '';
-                let method = 'POST';
+                let endpoint = '';
 
                 if (item.type === 'ADD_TRANSACTION') {
-                    url = `${API_URL}/transactions`;
+                    endpoint = '/transactions';
                 } else if (item.type === 'ADD_BILL') {
-                    url = `${API_URL}/bills`;
+                    endpoint = '/bills';
                 }
 
-                if (url) {
-                    const response = await fetch(url, {
-                        method,
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(item.payload),
-                    });
-
-                    if (response.ok) {
+                if (endpoint) {
+                    const { error } = await api.post(endpoint, item.payload);
+                    if (!error) {
                         processedIds.push(item.id);
                     } else {
-                        console.error(`Failed to sync item ${item.id}:`, response.status);
-                        // Decide whether to keep or discard. For now, keep retry logic simple: don't remove if failed.
-                        // But if it's a 4xx error (bad request), maybe we should discard?
-                        // For simplicity, we only remove on 200/201.
+                        console.error(`Failed to sync item ${item.id}:`, error);
                     }
                 }
             } catch (e) {
@@ -132,9 +143,6 @@ export const OfflineProvider = ({ children }: { children: React.ReactNode }) => 
             setQueue(prev => prev.filter(item => !processedIds.includes(item.id)));
         }
     };
-
-    // Auto-process on focus or interval could be added in layout, 
-    // or we can expose checkConnection and let dashboard trigger it.
 
     return (
         <OfflineContext.Provider value={{ isOffline, queue, addToQueue, processQueue, checkConnection }}>

@@ -1,5 +1,5 @@
 import { colors } from "@/constants/colors";
-import { API_URL } from "@/constants/config";
+import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -7,7 +7,7 @@ import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { Link, useFocusEffect, useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { Alert, SectionList, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, SectionList, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 // Mock Data
@@ -53,18 +53,14 @@ const TransactionsScreen = () => {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isSmartSearch, setIsSmartSearch] = useState(false);
+  const [smartResults, setSmartResults] = useState<any[] | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
 
   const fetchTransactions = async () => {
     try {
-      const response = await fetch(`${API_URL}/transactions`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setTransactions(data);
-      }
+      const { data } = await api.get('/transactions');
+      if (data) setTransactions(data.transactions || data);
     } catch (error) {
       console.error('Failed to fetch transactions', error);
     } finally {
@@ -75,19 +71,30 @@ const TransactionsScreen = () => {
 
   const deleteTransaction = async (id: string) => {
     try {
-      const response = await fetch(`${API_URL}/transactions/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      if (response.ok) {
+      const { error } = await api.delete(`/transactions/${id}`);
+      if (!error) {
         setTransactions(prev => prev.filter(t => (t._id || t.id) !== id));
       } else {
         Alert.alert('Error', 'Failed to delete transaction');
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to delete transaction');
+    }
+  };
+
+  const handleSmartSearch = async (query: string) => {
+    if (!query || query.length < 3) {
+      setSmartResults(null);
+      return;
+    }
+    setIsSearching(true);
+    try {
+      const { data } = await api.post('/transactions/search', { query });
+      if (data) setSmartResults(data);
+    } catch {
+      setSmartResults(null);
+    } finally {
+      setIsSearching(false);
     }
   };
 
@@ -254,14 +261,40 @@ const TransactionsScreen = () => {
         {/* Search & Filter */}
         <View style={styles.filterSection}>
           <View style={styles.searchContainer}>
-            <Ionicons name="search" size={20} color={colors.textMuted} style={{ marginRight: 8 }} />
+            <Ionicons name={isSmartSearch ? "sparkles" : "search"} size={20} color={isSmartSearch ? colors.accent : colors.textMuted} style={{ marginRight: 8 }} />
             <TextInput
-              placeholder="Search transactions..."
+              placeholder={isSmartSearch ? "Ask anything... e.g. 'food with friends'" : "Search transactions..."}
               placeholderTextColor={colors.textMuted}
               style={styles.searchInput}
               value={searchQuery}
-              onChangeText={setSearchQuery}
+              onChangeText={(text) => {
+                setSearchQuery(text);
+                if (isSmartSearch) {
+                  // Debounce smart search
+                  if (text.length >= 3) {
+                    setTimeout(() => handleSmartSearch(text), 500);
+                  } else {
+                    setSmartResults(null);
+                  }
+                }
+              }}
+              onSubmitEditing={() => {
+                if (isSmartSearch && searchQuery.length >= 3) {
+                  handleSmartSearch(searchQuery);
+                }
+              }}
+              returnKeyType={isSmartSearch ? "search" : "done"}
             />
+            <TouchableOpacity
+              onPress={() => {
+                setIsSmartSearch(!isSmartSearch);
+                setSmartResults(null);
+                setSearchQuery('');
+              }}
+              style={{ padding: 4, borderRadius: 8, backgroundColor: isSmartSearch ? colors.accent + '30' : 'transparent' }}
+            >
+              <Ionicons name="sparkles" size={18} color={isSmartSearch ? colors.accent : colors.textMuted} />
+            </TouchableOpacity>
           </View>
           <View style={styles.tabsContainer}>
             {['All', 'Expense', 'Income'].map(tab => (
@@ -288,29 +321,53 @@ const TransactionsScreen = () => {
           </View>
         </View>
 
-        {/* Section List */}
-        <SectionList
-          sections={groupedData}
-          keyExtractor={item => item._id || item.id}
-          renderItem={({ item }) => <TransactionItem item={item} onLongPress={handleTransactionAction} />}
-          renderSectionHeader={({ section: { title, totalIncome, totalExpense } }) => (
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>{title}</Text>
-              <View style={styles.sectionTotals}>
-                {totalIncome > 0 && <Text style={styles.incomeTotal}>+{formatAmount(totalIncome)}</Text>}
-                {totalExpense > 0 && <Text style={styles.expenseTotal}>-{formatAmount(totalExpense)}</Text>}
+        {/* Smart Search Results or Normal Section List */}
+        {isSmartSearch && smartResults ? (
+          <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
+            {isSearching ? (
+              <View style={styles.emptyState}>
+                <ActivityIndicator color={colors.accent} />
+                <Text style={[styles.emptyText, { marginTop: 8 }]}>Searching with AI...</Text>
               </View>
-            </View>
-          )}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>No transactions found</Text>
-            </View>
-          }
-          stickySectionHeadersEnabled={false}
-        />
+            ) : smartResults.length > 0 ? (
+              <>
+                <Text style={{ color: colors.textMuted, fontSize: 12, paddingHorizontal: 20, marginBottom: 8 }}>
+                  {smartResults.length} results found
+                </Text>
+                {smartResults.map(item => (
+                  <TransactionItem key={item._id || item.id} item={item} onLongPress={handleTransactionAction} />
+                ))}
+              </>
+            ) : (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyText}>No matching transactions found</Text>
+              </View>
+            )}
+          </ScrollView>
+        ) : (
+          <SectionList
+            sections={groupedData}
+            keyExtractor={item => item._id || item.id}
+            renderItem={({ item }) => <TransactionItem item={item} onLongPress={handleTransactionAction} />}
+            renderSectionHeader={({ section: { title, totalIncome, totalExpense } }) => (
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>{title}</Text>
+                <View style={styles.sectionTotals}>
+                  {totalIncome > 0 && <Text style={styles.incomeTotal}>+{formatAmount(totalIncome)}</Text>}
+                  {totalExpense > 0 && <Text style={styles.expenseTotal}>-{formatAmount(totalExpense)}</Text>}
+                </View>
+              </View>
+            )}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyText}>No transactions found</Text>
+              </View>
+            }
+            stickySectionHeadersEnabled={false}
+          />
+        )}
 
         {/* FAB */}
         <Link href="/(main)/add-transaction" asChild>

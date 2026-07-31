@@ -1,5 +1,5 @@
 import { colors } from "@/constants/colors";
-import { API_URL } from "@/constants/config";
+import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import { FontAwesome5, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -30,11 +30,8 @@ const BillsScreen = () => {
 
   const fetchBillHistory = async () => {
     try {
-      const response = await fetch(`${API_URL}/bills/history/${user.id || user._id}`);
-      const data = await response.json();
-      if (response.ok) {
-        setBillHistory(data);
-      }
+      const { data } = await api.get('/bills/history');
+      if (data) setBillHistory(data);
     } catch (error) {
       console.error('Failed to fetch history');
     }
@@ -43,11 +40,8 @@ const BillsScreen = () => {
   const fetchBills = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch(`${API_URL}/bills/${user.id || user._id}`);
-      const data = await response.json();
-      if (response.ok) {
-        setBills(data);
-      }
+      const { data } = await api.get('/bills');
+      if (data) setBills(data);
       fetchBillHistory();
     } catch (error) {
       console.error('Failed to fetch bills');
@@ -106,8 +100,8 @@ const BillsScreen = () => {
 
   const deleteBill = async (id: string) => {
     try {
-      const response = await fetch(`${API_URL}/bills/${id}`, { method: 'DELETE' });
-      if (response.ok) {
+      const { error } = await api.delete(`/bills/${id}`);
+      if (!error) {
         setBills(prev => prev.filter(b => (b._id || b.id) !== id));
       } else {
         Alert.alert('Error', 'Failed to delete bill');
@@ -126,15 +120,11 @@ const BillsScreen = () => {
     if (!selectedBill) return;
     setIsDeleting(true);
     try {
-      const response = await fetch(`${API_URL}/bills/${selectedBill._id || selectedBill.id}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason: deleteReason }),
-      });
-      if (response.ok) {
+      const { error } = await api.delete(`/bills/${selectedBill._id || selectedBill.id}`, { reason: deleteReason });
+      if (!error) {
         setBills(prev => prev.filter(b => (b._id || b.id) !== (selectedBill._id || selectedBill.id)));
         setSelectedBill(null);
-        fetchBillHistory(); // Refresh history
+        fetchBillHistory();
       } else {
         Alert.alert('Error', 'Failed to delete bill');
       }
@@ -167,12 +157,8 @@ const BillsScreen = () => {
                     text: 'Continue',
                     onPress: async () => {
                       try {
-                        const response = await fetch(`${API_URL}/bills/${bill._id || bill.id}/pay`, {
-                          method: 'PATCH',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ isPaid: true })
-                        });
-                        if (response.ok) {
+                        const { error: payError } = await api.patch(`/bills/${bill._id || bill.id}/pay`, { isPaid: true });
+                        if (!payError) {
                           fetchBills();
                           Alert.alert('Success', 'Bill marked as paid and expense created!');
                         } else {
@@ -196,12 +182,8 @@ const BillsScreen = () => {
                     text: 'Keep Transaction',
                     onPress: async () => {
                       try {
-                        const response = await fetch(`${API_URL}/bills/${bill._id || bill.id}/pay`, {
-                          method: 'PATCH',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ isPaid: false, deleteTransaction: false })
-                        });
-                        if (response.ok) {
+                        const { error: unpayError } = await api.patch(`/bills/${bill._id || bill.id}/pay`, { isPaid: false, deleteTransaction: false });
+                        if (!unpayError) {
                           fetchBills();
                         } else {
                           Alert.alert('Error', 'Failed to update bill status');
@@ -216,12 +198,8 @@ const BillsScreen = () => {
                     style: 'destructive',
                     onPress: async () => {
                       try {
-                        const response = await fetch(`${API_URL}/bills/${bill._id || bill.id}/pay`, {
-                          method: 'PATCH',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ isPaid: false, deleteTransaction: true })
-                        });
-                        if (response.ok) {
+                        const { error: delTxnError } = await api.patch(`/bills/${bill._id || bill.id}/pay`, { isPaid: false, deleteTransaction: true });
+                        if (!delTxnError) {
                           fetchBills();
                           Alert.alert('Success', 'Bill unmarked and transaction deleted');
                         } else {

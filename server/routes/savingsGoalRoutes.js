@@ -2,11 +2,14 @@ const express = require('express');
 const router = express.Router();
 const SavingsGoal = require('../models/SavingsGoal');
 const Transaction = require('../models/Transaction');
+const { protect } = require('../middleware/authMiddleware');
 
-// Get all goals for a user
-router.get('/:userId', async (req, res) => {
+router.use(protect);
+
+// Get all goals for the authenticated user
+router.get('/', async (req, res) => {
     try {
-        const goals = await SavingsGoal.find({ userId: req.params.userId }).sort({ deadline: 1 });
+        const goals = await SavingsGoal.find({ userId: req.user._id }).sort({ deadline: 1 });
         res.json(goals);
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -15,11 +18,11 @@ router.get('/:userId', async (req, res) => {
 
 // Create a new goal
 router.post('/', async (req, res) => {
-    const { userId, name, targetAmount, currentAmount, deadline, icon, color } = req.body;
+    const { name, targetAmount, currentAmount, deadline, icon, color } = req.body;
 
     try {
         const newGoal = new SavingsGoal({
-            userId,
+            userId: req.user._id,
             name,
             targetAmount,
             currentAmount,

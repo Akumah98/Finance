@@ -2,12 +2,15 @@ const express = require('express');
 const router = express.Router();
 const MoneyPlan = require('../models/MoneyPlan');
 const Transaction = require('../models/Transaction');
+const { protect } = require('../middleware/authMiddleware');
 
-// GET /api/money-plan/:userId
+router.use(protect);
+
+// GET /api/money-plan
 // Returns the user's plan config + live bucket calculations for the current month
-router.get('/:userId', async (req, res) => {
+router.get('/', async (req, res) => {
     try {
-        const { userId } = req.params;
+        const userId = req.user._id;
 
         // Get or create the plan with defaults
         let plan = await MoneyPlan.findOne({ userId });
@@ -87,11 +90,11 @@ router.get('/:userId', async (req, res) => {
     }
 });
 
-// PUT /api/money-plan/:userId
+// PUT /api/money-plan
 // Update percentages and/or category assignments
-router.put('/:userId', async (req, res) => {
+router.put('/', async (req, res) => {
     try {
-        const { userId } = req.params;
+        const userId = req.user._id;
         const { needsPct, wantsPct, futurePct, needsCategories, wantsCategories } = req.body;
 
         // Validate percentages sum to 100 if all three are provided

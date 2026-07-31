@@ -1,5 +1,5 @@
 import { colors } from "@/constants/colors";
-import { API_URL } from "@/constants/config";
+import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { formatAmount, parseAmount } from "@/utils/inputValidation";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -58,26 +58,19 @@ export default function AddGoalScreen() {
 
         setIsSubmitting(true);
         try {
-            const url = isEditing ? `${API_URL}/savings-goals/${params.id}` : `${API_URL}/savings-goals`;
-            const method = isEditing ? 'PUT' : 'POST';
+            const goalData = {
+                name,
+                targetAmount: parseFloat(parseAmount(target)),
+                deadline: date,
+                icon,
+                color: colors.accent
+            };
 
-            const response = await fetch(url, {
-                method,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    userId: user.id || user._id,
-                    name,
-                    targetAmount: parseFloat(parseAmount(target)),
-                    deadline: date,
-                    icon,
-                    color: colors.accent // Default color for now
-                }),
-            });
+            const { error } = isEditing
+                ? await api.put(`/savings-goals/${params.id}`, goalData)
+                : await api.post('/savings-goals', goalData);
 
-            if (response.ok) {
+            if (!error) {
                 Alert.alert('Success', `Savings goal ${isEditing ? 'updated' : 'created'}!`, [
                     { text: 'OK', onPress: () => router.back() }
                 ]);

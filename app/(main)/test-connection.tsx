@@ -1,4 +1,5 @@
-import { api, API_URL } from '@/lib/api';
+import { api } from '@/lib/api';
+import { API_URL } from '@/constants/config';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -12,13 +13,13 @@ export default function TestConnection() {
     const checkConnection = async () => {
         setStatus('loading');
         try {
-            const data = await api.get('/api/health');
-            if (data.status === 'ok') {
+            const { data, error } = await api.get('/health');
+            if (data?.status === 'ok') {
                 setStatus('connected');
                 setMessage(data.message);
             } else {
                 setStatus('error');
-                setMessage('Invalid response from server');
+                setMessage(error || 'Invalid response from server');
             }
         } catch (err: any) {
             setStatus('error');

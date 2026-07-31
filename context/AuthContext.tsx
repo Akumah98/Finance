@@ -1,6 +1,7 @@
 import { useRouter, useSegments } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { setLogoutCallback } from '@/lib/api';
 
 // Define the shape of the context
 interface AuthContextType {
@@ -125,6 +126,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         await SecureStore.deleteItemAsync('userToken');
         await SecureStore.deleteItemAsync('userData');
     };
+
+    useEffect(() => {
+        setLogoutCallback(logout);
+    }, []);
 
     return (
         <AuthContext.Provider value={{ user, token, isLoading, login, register, logout }}>

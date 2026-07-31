@@ -15,6 +15,21 @@ mongoose.connect(process.env.MONGO_URI)
     .then(() => console.log('MongoDB Connected'))
     .catch(err => console.log(err));
 
+// Ensure indexes for query performance
+mongoose.connection.once('open', async () => {
+    try {
+        const db = mongoose.connection.db;
+        await db.collection('transactions').createIndex({ userId: 1, date: -1 });
+        await db.collection('transactions').createIndex({ userId: 1, type: 1, date: -1 });
+        await db.collection('bills').createIndex({ userId: 1, isPaid: 1, dueDate: 1 });
+        await db.collection('messages').createIndex({ userId: 1, createdAt: -1 });
+        await db.collection('savingsgoals').createIndex({ userId: 1 });
+        await db.collection('categories').createIndex({ userId: 1 });
+    } catch (err) {
+        console.error('Index creation error:', err.message);
+    }
+});
+
 // Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/categories', require('./routes/categoryRoutes'));
@@ -28,6 +43,8 @@ app.use('/api/budgets', require('./routes/budgetRoutes'));
 app.use('/api/money-plan', require('./routes/moneyPlanRoutes'));
 app.use('/api/health-score', require('./routes/healthScoreRoutes'));
 app.use('/api/monthly-review', require('./routes/monthlyReviewRoutes'));
+app.use('/api/embeddings', require('./routes/embedRoutes'));
+app.use('/api/export', require('./routes/exportRoutes'));
 
 // Routes
 app.get('/', (req, res) => {
@@ -37,6 +54,16 @@ app.get('/', (req, res) => {
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', message: 'Backend is connected and healthy!' });
 });
+
+// Global error handler
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(err.status || 500).json({ message: err.message || 'Internal server error' });
+});
+
+// Start bill reminder scheduler
+const { startBillReminderScheduler } = require('./services/notificationService');
+startBillReminderScheduler();
 
 // Start Server
 app.listen(PORT, () => {

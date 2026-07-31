@@ -1,4 +1,4 @@
-import { API_URL } from "@/constants/config";
+import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import { formatAmount as formatInputAmount, parseAmount } from "@/utils/inputValidation";
@@ -66,9 +66,8 @@ const BudgetsScreen = () => {
     const fetchBudgets = async () => {
         if (!user) return;
         try {
-            const response = await fetch(`${API_URL}/budgets/${user.id || user._id}`);
-            const data = await response.json();
-            if (response.ok) {
+            const { data, error } = await api.get('/budgets');
+            if (data) {
                 setBudgets(data);
             }
         } catch (error) {
@@ -91,26 +90,17 @@ const BudgetsScreen = () => {
         }
 
         const budgetData = {
-            userId: user.id || user._id,
             category: category.trim(),
             amount: parseFloat(parseAmount(amount)),
             period: "monthly",
         };
 
         try {
-            const method = selectedBudget ? "PUT" : "POST";
-            const url = selectedBudget
-                ? `${API_URL}/budgets/${selectedBudget._id}`
-                : `${API_URL}/budgets`;
+            const { data: savedBudget, error } = selectedBudget
+                ? await api.put(`/budgets/${selectedBudget._id}`, budgetData)
+                : await api.post('/budgets', budgetData);
 
-            const response = await fetch(url, {
-                method,
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(budgetData),
-            });
-
-            if (response.ok) {
-                const savedBudget = await response.json();
+            if (savedBudget) {
                 if (selectedBudget) {
                     setBudgets((prev) =>
                         prev.map((b) => (b._id === savedBudget._id ? savedBudget : b))
@@ -139,10 +129,8 @@ const BudgetsScreen = () => {
                     style: "destructive",
                     onPress: async () => {
                         try {
-                            const response = await fetch(`${API_URL}/budgets/${id}`, {
-                                method: "DELETE",
-                            });
-                            if (response.ok) {
+                            const { data, error } = await api.delete(`/budgets/${id}`);
+                            if (data) {
                                 setBudgets((prev) => prev.filter((b) => b._id !== id));
                             }
                         } catch (error) {

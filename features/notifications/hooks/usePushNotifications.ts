@@ -5,6 +5,7 @@ import {
   setupAndroidChannel,
 } from '../services/notificationService';
 import { PushTokenState } from '../types/notificationTypes';
+import { api } from '@/lib/api';
 
 export function usePushNotifications() {
   const [tokenState, setTokenState] = useState<PushTokenState>({
@@ -21,9 +22,11 @@ export function usePushNotifications() {
     setupAndroidChannel();
 
     fetchExpoPushToken()
-      .then((token) => {
+      .then(async (token) => {
         if (token) {
           setTokenState({ token, error: null, permissionGranted: true });
+          // Register token with backend
+          await api.put('/users/push-token', { pushToken: token });
         } else {
           setTokenState((prev) => ({ ...prev, permissionGranted: false }));
         }

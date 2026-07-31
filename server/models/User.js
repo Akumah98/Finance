@@ -35,6 +35,10 @@ const UserSchema = new mongoose.Schema({
         streakKing: { type: Number, default: 0, min: 0, max: 100 },
         debtSlayer: { type: Number, default: 0, min: 0, max: 100 }
     },
+    pushToken: {
+        type: String,
+        default: null
+    },
     createdAt: {
         type: Date,
         default: Date.now

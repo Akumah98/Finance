@@ -1,5 +1,5 @@
 import { colors } from "@/constants/colors";
-import { API_URL } from "@/constants/config";
+import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useOffline } from "@/context/OfflineContext";
 import { formatAmount as formatInputAmount, parseAmount } from "@/utils/inputValidation";
@@ -41,6 +41,7 @@ export default function AddTransactionScreen() {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const [categories, setCategories] = useState<any[]>([]);
+    const [suggestedCategory, setSuggestedCategory] = useState<string | null>(null);
 
     // Bulk Mode State
     const [mode, setMode] = useState<'single' | 'bulk'>('single');
@@ -64,15 +65,8 @@ export default function AddTransactionScreen() {
     useEffect(() => {
         const fetchCategories = async () => {
             try {
-                const response = await fetch(`${API_URL}/categories/${user.id || user._id}`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-                const data = await response.json();
-                if (response.ok) {
-                    setCategories(data);
-                }
+                const { data } = await api.get('/categories');
+                if (data) setCategories(data);
             } catch (error) {
                 Alert.alert('Error', 'Failed to fetch categories');
             }
@@ -127,11 +121,7 @@ export default function AddTransactionScreen() {
                     }
                 ]);
             } else {
-                const url = isEditing ? `${API_URL}/transactions/${id}` : `${API_URL}/transactions`;
-                const method = isEditing ? 'PUT' : 'POST';
-
                 const payload = {
-                    userId: user.id || user._id,
                     type,
                     amount: parseFloat(parseAmount(amount)),
                     category: categories.find(c => (c._id || c.id) === selectedCategory)?.name || 'Other',
@@ -139,28 +129,17 @@ export default function AddTransactionScreen() {
                     note
                 };
 
-                console.log('Transaction save:', { url, method, id, payload });
+                const { data, error } = isEditing
+                    ? await api.put(`/transactions/${id}`, payload)
+                    : await api.post('/transactions', payload);
 
-                const response = await fetch(url, {
-                    method,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify(payload),
-                });
-
-                const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(data.message || 'Failed to save transaction');
+                if (error) {
+                    throw new Error(error || 'Failed to save transaction');
                 }
 
                 // Check if we need to delete a savings goal (used logic)
                 if (deleteGoalId) {
-                    await fetch(`${API_URL}/savings-goals/${deleteGoalId}`, {
-                        method: 'DELETE',
-                    });
+                    await api.delete(`/savings-goals/${deleteGoalId}`);
                 }
 
                 Alert.alert('Success', `Transaction ${isEditing ? 'updated' : 'saved'} successfully${deleteGoalId ? ' and Goal deleted' : ''}`, [
@@ -193,13 +172,8 @@ export default function AddTransactionScreen() {
                 onPress: async () => {
                     setIsSubmitting(true);
                     try {
-                        const response = await fetch(`${API_URL}/transactions/${id}`, {
-                            method: 'DELETE',
-                            headers: {
-                                'Authorization': `Bearer ${token}`
-                            },
-                        });
-                        if (response.ok) {
+                        const { error: delError } = await api.delete(`/transactions/${id}`);
+                        if (!delError) {
                             Alert.alert('Deleted', 'Transaction deleted successfully', [
                                 {
                                     text: 'OK',
@@ -258,19 +232,10 @@ export default function AddTransactionScreen() {
 
         setIsSubmitting(true);
         try {
-            const response = await fetch(`${API_URL}/transactions/bulk`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(batchTransactions),
-            });
+            const { data, error } = await api.post('/transactions/bulk', batchTransactions);
 
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.message || 'Failed to save transactions');
+            if (error) {
+                throw new Error(error || 'Failed to save transactions');
             }
 
             Alert.alert('Success', `${batchTransactions.length} transactions saved successfully`, [
@@ -501,8 +466,27 @@ export default function AddTransactionScreen() {
                                     style={styles.textInput}
                                     value={note}
                                     onChangeText={setNote}
+                                    onBlur={async () => {
+                                        if (note.length >= 3 && !selectedCategory && !isEditing) {
+                                            try {
+                                                const { data } = await api.post('/transactions/suggest-category', { note });
+                                                if (data?.category) {
+                                                    const cat = categories.find(c => c.name === data.category && c.type === type);
+                                                    if (cat) {
+                                                        setSuggestedCategory(data.category);
+                                                        setSelectedCategory(cat._id || cat.id);
+                                                    }
+                                                }
+                                            } catch {}
+                                        }
+                                    }}
                                 />
                             </View>
+                            {suggestedCategory && selectedCategory && (
+                                <Text style={{ color: colors.accent, fontSize: 12, marginLeft: 28, marginTop: 4 }}>
+                                    Auto-suggested: {suggestedCategory}
+                                </Text>
+                            )}
                         </View>
 
 

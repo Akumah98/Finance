@@ -141,4 +141,20 @@ router.patch('/:userId/profile', async (req, res) => {
     }
 });
 
+// Register push notification token
+router.put('/push-token', async (req, res) => {
+    const { pushToken } = req.body;
+
+    if (!pushToken) {
+        return res.status(400).json({ message: 'pushToken is required' });
+    }
+
+    try {
+        await User.findByIdAndUpdate(req.user.id, { pushToken });
+        res.json({ message: 'Push token registered' });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
 module.exports = router;

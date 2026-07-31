@@ -1,5 +1,5 @@
-import { API_URL } from "@/constants/config";
 import { useAuth } from "@/context/AuthContext";
+import { api } from "@/lib/api";
 import { useCurrency } from "@/context/CurrencyContext";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
@@ -58,6 +58,7 @@ interface ReviewData {
   topMiss: CategoryItem | null;
   bills: { total: number; paid: number; missed: number };
   tip: string;
+  aiNarrative: string | null;
   hasPlan: boolean;
 }
 
@@ -96,7 +97,7 @@ const buildMonthOptions = () => {
 
 export default function MonthlyReviewScreen() {
   const router = useRouter();
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   const { formatAmount } = useCurrency();
 
   const monthOptions = buildMonthOptions();
@@ -111,11 +112,8 @@ export default function MonthlyReviewScreen() {
     if (!userId) return;
     const { year, month } = monthOptions[idx];
     try {
-      const res = await fetch(
-        `${API_URL}/monthly-review/${userId}?year=${year}&month=${month}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      if (res.ok) setData(await res.json());
+      const { data: json, error } = await api.get(`/monthly-review?year=${year}&month=${month}`);
+      if (!error && json) setData(json);
     } catch {
       // silent
     } finally {
@@ -448,6 +446,17 @@ export default function MonthlyReviewScreen() {
                       );
                     })}
                   </BlurView>
+                </View>
+              )}
+
+              {/* AI Narrative */}
+              {data!.aiNarrative && (
+                <View style={styles.tipCard}>
+                  <Ionicons name="sparkles" size={22} color={colors.gradient1} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.tipTitle, { color: colors.gradient1 }]}>AI Summary</Text>
+                    <Text style={styles.tipText}>{data!.aiNarrative}</Text>
+                  </View>
                 </View>
               )}
 

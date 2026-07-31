@@ -1,23 +1,25 @@
 const express = require('express');
 const router = express.Router();
 const Bill = require('../models/Bill');
-
 const BillHistory = require('../models/BillHistory');
+const { protect } = require('../middleware/authMiddleware');
 
-// Get all bills for a user
-router.get('/:userId', async (req, res) => {
+router.use(protect);
+
+// Get all bills for the authenticated user
+router.get('/', async (req, res) => {
     try {
-        const bills = await Bill.find({ userId: req.params.userId }).sort({ dueDate: 1 });
+        const bills = await Bill.find({ userId: req.user._id }).sort({ dueDate: 1 });
         res.json(bills);
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
 });
 
-// Get bill history for a user
-router.get('/history/:userId', async (req, res) => {
+// Get bill history for the authenticated user
+router.get('/history', async (req, res) => {
     try {
-        const history = await BillHistory.find({ userId: req.params.userId }).sort({ timestamp: -1 });
+        const history = await BillHistory.find({ userId: req.user._id }).sort({ timestamp: -1 });
         res.json(history);
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -26,11 +28,11 @@ router.get('/history/:userId', async (req, res) => {
 
 // Create a new bill
 router.post('/', async (req, res) => {
-    const { userId, name, amount, dueDate, frequency, category, autoPay, companyLogo } = req.body;
+    const { name, amount, dueDate, frequency, category, autoPay, companyLogo } = req.body;
 
     try {
         const newBill = new Bill({
-            userId,
+            userId: req.user._id,
             name,
             amount,
             dueDate,
@@ -44,7 +46,7 @@ router.post('/', async (req, res) => {
 
         // Log history
         await new BillHistory({
-            userId,
+            userId: req.user._id,
             billName: name,
             changeType: 'CREATED',
             details: `Bill created: $${amount} (${frequency})`,

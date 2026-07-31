@@ -1,5 +1,5 @@
 "use client";
-import { API_URL } from "@/constants/config";
+import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import { formatAmount as formatInputAmount, parseAmount } from "@/utils/inputValidation";
@@ -50,9 +50,8 @@ export default function GoalsScreen() {
     const fetchGoals = async () => {
         if (!user) return;
         try {
-            const response = await fetch(`${API_URL}/savings-goals/${user.id || user._id}`);
-            const data = await response.json();
-            if (response.ok) {
+            const { data, error } = await api.get('/savings-goals');
+            if (data) {
                 setGoals(data);
             }
         } catch (error) {
@@ -70,12 +69,8 @@ export default function GoalsScreen() {
         if (!selectedGoal || !addAmount) return;
         setIsUpdating(true);
         try {
-            const response = await fetch(`${API_URL}/savings-goals/${selectedGoal._id || selectedGoal.id}/add-funds`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ amount: parseFloat(parseAmount(addAmount)) })
-            });
-            if (response.ok) {
+            const { data, error } = await api.patch(`/savings-goals/${selectedGoal._id || selectedGoal.id}/add-funds`, { amount: parseFloat(parseAmount(addAmount)) });
+            if (!error) {
                 fetchGoals();
                 setAddFundsModalVisible(false);
                 setAddAmount('');
@@ -167,21 +162,14 @@ export default function GoalsScreen() {
                                                                     text: "I kept it",
                                                                     onPress: async () => {
                                                                         try {
-                                                                            await fetch(`${API_URL}/transactions`, {
-                                                                                method: 'POST',
-                                                                                headers: { 'Content-Type': 'application/json' },
-                                                                                body: JSON.stringify({
-                                                                                    userId: user.id || user._id,
-                                                                                    type: 'income',
-                                                                                    amount: parseFloat(goal.currentAmount),
-                                                                                    category: 'Savings',
-                                                                                    date: new Date(),
-                                                                                    note: `Recovered from ${goal.name}`
-                                                                                })
+                                                                            await api.post('/transactions', {
+                                                                                type: 'income',
+                                                                                amount: parseFloat(goal.currentAmount),
+                                                                                category: 'Savings',
+                                                                                date: new Date(),
+                                                                                note: `Recovered from ${goal.name}`
                                                                             });
-                                                                            await fetch(`${API_URL}/savings-goals/${goal._id || goal.id}`, {
-                                                                                method: 'DELETE'
-                                                                            });
+                                                                            await api.delete(`/savings-goals/${goal._id || goal.id}`);
                                                                             fetchGoals();
                                                                         } catch (error) {
                                                                             Alert.alert("Error", "Failed to delete goal");

@@ -27,7 +27,12 @@ const TransactionSchema = new mongoose.Schema({
         type: String
     },
     receiptUri: {
-        type: String // URL or path to image
+        type: String
+    },
+    // Vector embedding for semantic search (768-dim from text-embedding-004)
+    embedding: {
+        type: [Number],
+        default: undefined
     },
     createdAt: {
         type: Date,
