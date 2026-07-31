@@ -1,5 +1,6 @@
 import { colors } from "@/constants/colors";
 import { api } from "@/lib/api";
+import { localCache } from "@/lib/localCache";
 import { useAuth } from "@/context/AuthContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import { useOffline } from "@/context/OfflineContext";
@@ -48,10 +49,21 @@ export default function AddBillScreen() {
     useEffect(() => {
         const fetchCategories = async () => {
             try {
+                const categoriesCacheKey = `categories_${user?.id || user?._id || 'guest'}`;
+                const cached = await localCache.get<any[]>(categoriesCacheKey);
+                if (cached) {
+                    setCategories(cached);
+                    if (initialCategory) {
+                        const cat = cached.find((c: any) => c.name === initialCategory && c.type === 'expense');
+                        if (cat) setSelectedCategory(cat._id || cat.id);
+                    }
+                }
+
                 const { data } = await api.get('/categories');
                 if (data) {
                     setCategories(data);
-                    if (initialCategory) {
+                    await localCache.set(categoriesCacheKey, data);
+                    if (initialCategory && !cached) {
                         const cat = data.find((c: any) => c.name === initialCategory && c.type === 'expense');
                         if (cat) setSelectedCategory(cat._id || cat.id);
                     }
@@ -108,6 +120,7 @@ export default function AddBillScreen() {
                     : await api.post('/bills', billData);
 
                 if (!error) {
+                    await localCache.invalidatePrefix(`bills_${user?.id || user?._id}`);
                     Alert.alert('Success', `Bill ${isEditing ? 'updated' : 'added'} successfully`, [
                         { text: 'OK', onPress: () => router.back() }
                     ]);

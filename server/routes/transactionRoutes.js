@@ -104,6 +104,7 @@ router.put('/:id', async (req, res) => {
             req.body,
             { new: true }
         );
+        insightsCache.invalidate(req.user.id);
         res.json(updatedTransaction);
 
         // Re-generate embedding for updated content
@@ -134,6 +135,7 @@ router.delete('/:id', async (req, res) => {
         }
 
         await Transaction.findByIdAndDelete(req.params.id);
+        insightsCache.invalidate(req.user.id);
         res.json({ message: 'Transaction deleted' });
     } catch (err) {
         res.status(500).json({ message: err.message });

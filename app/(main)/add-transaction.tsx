@@ -66,10 +66,17 @@ export default function AddTransactionScreen() {
     useEffect(() => {
         const fetchCategories = async () => {
             try {
+                const categoriesCacheKey = `categories_${user?.id || user?._id || 'guest'}`;
+                const cached = await localCache.get<any[]>(categoriesCacheKey);
+                if (cached) setCategories(cached);
+
                 const { data } = await api.get('/categories');
-                if (data) setCategories(data);
+                if (data) {
+                    setCategories(data);
+                    await localCache.set(categoriesCacheKey, data);
+                }
             } catch (error) {
-                Alert.alert('Error', 'Failed to fetch categories');
+                console.error('Failed to fetch categories');
             }
         };
 
@@ -143,10 +150,23 @@ export default function AddTransactionScreen() {
                     await api.delete(`/savings-goals/${deleteGoalId}`);
                 }
 
-                // Invalidate offline cache
-                localCache.invalidatePrefix('transactions_');
-                localCache.invalidatePrefix('insights_');
-                localCache.invalidatePrefix('healthscore_');
+                // Update transactions cache with new/updated data
+                const txCacheKey = `transactions_${user?.id || user?._id}`;
+                const cachedTransactions = await localCache.get<any[]>(txCacheKey);
+                if (cachedTransactions && data) {
+                    if (isEditing) {
+                        const updated = cachedTransactions.map(t =>
+                            (t._id || t.id) === id ? data : t
+                        );
+                        await localCache.set(txCacheKey, updated);
+                    } else {
+                        await localCache.set(txCacheKey, [data, ...cachedTransactions]);
+                    }
+                } else {
+                    await localCache.invalidatePrefix('transactions_');
+                }
+                await localCache.invalidatePrefix('insights_');
+                await localCache.invalidatePrefix('healthscore_');
 
                 Alert.alert('Success', `Transaction ${isEditing ? 'updated' : 'saved'} successfully${deleteGoalId ? ' and Goal deleted' : ''}`, [
                     {

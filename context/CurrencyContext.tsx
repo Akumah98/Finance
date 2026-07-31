@@ -22,6 +22,8 @@ interface CurrencyContextType {
     setCurrencyCode: (code: CurrencyCode) => Promise<void>;
     formatAmount: (amount: number) => string;
     availableCurrencies: Currency[];
+    figuresHidden: boolean;
+    toggleFigures: () => void;
 }
 
 const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined);
@@ -29,10 +31,25 @@ const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined
 export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [currency, setCurrency] = useState<Currency>(CURRENCIES.XAF);
     const [loading, setLoading] = useState(true);
+    const [figuresHidden, setFiguresHidden] = useState(false);
 
     useEffect(() => {
         loadCurrency();
+        loadFiguresPreference();
     }, []);
+
+    const loadFiguresPreference = async () => {
+        try {
+            const saved = await AsyncStorage.getItem('figures_hidden');
+            if (saved === 'true') setFiguresHidden(true);
+        } catch {}
+    };
+
+    const toggleFigures = async () => {
+        const newValue = !figuresHidden;
+        setFiguresHidden(newValue);
+        await AsyncStorage.setItem('figures_hidden', String(newValue));
+    };
 
     const loadCurrency = async () => {
         try {
@@ -61,6 +78,10 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
 
     const formatAmount = (amount: number) => {
+        if (figuresHidden) {
+            return currency.code === 'XAF' ? `•••••• ${currency.symbol}` : `${currency.symbol}••••••`;
+        }
+
         const fractionDigits = currency.code === 'XAF' ? 0 : 2;
         const fixed = Math.abs(amount).toFixed(fractionDigits);
         const [intPart, decPart] = fixed.split('.');
@@ -78,7 +99,9 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             currency,
             setCurrencyCode,
             formatAmount,
-            availableCurrencies: Object.values(CURRENCIES)
+            availableCurrencies: Object.values(CURRENCIES),
+            figuresHidden,
+            toggleFigures
         }}>
             {children}
         </CurrencyContext.Provider>

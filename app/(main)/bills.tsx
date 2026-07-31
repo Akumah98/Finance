@@ -41,7 +41,7 @@ const BillsScreen = () => {
       const { data } = await api.get('/bills/history');
       if (data) {
         setBillHistory(data);
-        await localCache.set(historyCacheKey, data, 15 * 60 * 1000);
+        await localCache.set(historyCacheKey, data);
       }
     } catch (error) {
       console.error('Failed to fetch history');
@@ -60,7 +60,7 @@ const BillsScreen = () => {
       const { data } = await api.get('/bills');
       if (data) {
         setBills(data);
-        await localCache.set(billsCacheKey, data, 15 * 60 * 1000);
+        await localCache.set(billsCacheKey, data);
       }
       fetchBillHistory();
     } catch (error) {

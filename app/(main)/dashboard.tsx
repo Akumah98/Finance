@@ -46,23 +46,16 @@ const colors = {
   textMuted: "#94A3B8",
 };
 
-interface BalanceState {
-  isHidden: boolean;
-  isBlurred: boolean;
-}
-
 import { useCurrency } from "@/context/CurrencyContext";
 import { useOffline } from "@/context/OfflineContext";
 
 
+
 export default function DashboardScreen() {
   const router = useRouter();
-  const { currency, formatAmount } = useCurrency();
+  const { currency, formatAmount, figuresHidden, toggleFigures } = useCurrency();
   const { isOffline, queue } = useOffline();
-  const [balanceState, setBalanceState] = useState<BalanceState>({
-    isHidden: false,
-    isBlurred: false,
-  });
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [spendingPeriod, setSpendingPeriod] = useState('Weekly');
   const [selectedGoal, setSelectedGoal] = useState<any>(null);
   const [addFundsModalVisible, setAddFundsModalVisible] = useState(false);
@@ -121,7 +114,7 @@ export default function DashboardScreen() {
       const { data } = await api.get('/savings-goals');
       if (data) {
         setGoals(data);
-        await localCache.set(uKey, data, 60 * 60 * 1000);
+        await localCache.set(uKey, data);
       }
     } catch (error) {
       console.error('Failed to fetch goals');
@@ -139,7 +132,7 @@ export default function DashboardScreen() {
       if (data) {
         const list = data.transactions || data;
         setTransactions(list);
-        await localCache.set(uKey, list, 15 * 60 * 1000);
+        await localCache.set(uKey, list);
       }
     } catch (error) {
       console.error('Failed to fetch transactions');
@@ -156,7 +149,7 @@ export default function DashboardScreen() {
       const { data } = await api.get('/bills');
       if (data) {
         setBills(data);
-        await localCache.set(uKey, data, 15 * 60 * 1000);
+        await localCache.set(uKey, data);
       }
     } catch (error) {
       console.error('Failed to fetch bills');
@@ -173,7 +166,7 @@ export default function DashboardScreen() {
       const { data } = await api.get('/health-score');
       if (data) {
         setHealthScore(data);
-        await localCache.set(uKey, data, 30 * 60 * 1000);
+        await localCache.set(uKey, data);
       }
     } catch {
       // silent — card just won't render
@@ -204,7 +197,7 @@ export default function DashboardScreen() {
           streakKing: false,
           debtSlayer: false
         });
-        await localCache.set(uKey, data, 30 * 60 * 1000);
+        await localCache.set(uKey, data);
       }
     } catch (error) {
       console.error('Failed to fetch user stats');
@@ -227,13 +220,17 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const loadAllData = useCallback(async () => {
-    await Promise.all([
-      fetchGoals(),
-      fetchTransactions(),
-      fetchBills(),
-      fetchUserStats(),
-      fetchHealthScore(),
-    ]);
+    try {
+      await Promise.all([
+        fetchGoals(),
+        fetchTransactions(),
+        fetchBills(),
+        fetchUserStats(),
+        fetchHealthScore(),
+      ]);
+    } finally {
+      setIsInitialLoading(false);
+    }
   }, [user]);
 
   const onRefresh = useCallback(async () => {
@@ -540,6 +537,21 @@ export default function DashboardScreen() {
     syncStatsToBackend(dashboardData.streak, userAchievements);
   }, [dashboardData.streak]);
 
+  if (isInitialLoading) {
+    return (
+      <SafeAreaProvider>
+        <SafeAreaView style={styles.container}>
+          <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+          <LinearGradient
+            colors={["#1E1B4B", "#0F0F1A", "#0F172A"]}
+            style={StyleSheet.absoluteFill}
+          />
+          <DashboardSkeleton />
+        </SafeAreaView>
+      </SafeAreaProvider>
+    );
+  }
+
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.container}>
@@ -580,6 +592,13 @@ export default function DashboardScreen() {
               <Text style={styles.userName}>{user?.userName ? user.userName.split(' ')[0] : 'User'}</Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <TouchableOpacity
+                style={styles.chatHeaderBtn}
+                onPress={toggleFigures}
+                activeOpacity={0.8}
+              >
+                <Ionicons name={figuresHidden ? "eye-off-outline" : "eye-outline"} size={22} color={colors.text} />
+              </TouchableOpacity>
               <TouchableOpacity
                 style={styles.chatHeaderBtn}
                 onPress={() => router.push('/(main)/chat')}

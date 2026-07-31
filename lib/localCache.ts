@@ -3,15 +3,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 interface CacheEnvelope<T = any> {
     data: T;
     timestamp: number;
-    ttlMs?: number;
+    ttlMs?: number; // undefined = never expires (persistent offline)
 }
 
 const CACHE_PREFIX = 'glitch_cache_';
 
 export const localCache = {
-    /**
-     * Store data in AsyncStorage with optional TTL (time-to-live in ms).
-     */
     async set<T = any>(key: string, data: T, ttlMs?: number): Promise<void> {
         try {
             const envelope: CacheEnvelope<T> = {
@@ -26,9 +23,6 @@ export const localCache = {
         }
     },
 
-    /**
-     * Retrieve cached data if present and not expired.
-     */
     async get<T = any>(key: string): Promise<T | null> {
         try {
             const storageKey = `${CACHE_PREFIX}${key}`;
@@ -37,7 +31,6 @@ export const localCache = {
 
             const envelope: CacheEnvelope<T> = JSON.parse(raw);
             if (envelope.ttlMs && Date.now() - envelope.timestamp > envelope.ttlMs) {
-                // Expired — clear silently
                 await AsyncStorage.removeItem(storageKey);
                 return null;
             }
@@ -49,9 +42,18 @@ export const localCache = {
         }
     },
 
-    /**
-     * Remove a single cache key.
-     */
+    async getTimestamp(key: string): Promise<number | null> {
+        try {
+            const storageKey = `${CACHE_PREFIX}${key}`;
+            const raw = await AsyncStorage.getItem(storageKey);
+            if (!raw) return null;
+            const envelope: CacheEnvelope = JSON.parse(raw);
+            return envelope.timestamp;
+        } catch {
+            return null;
+        }
+    },
+
     async invalidate(key: string): Promise<void> {
         try {
             const storageKey = `${CACHE_PREFIX}${key}`;
@@ -61,9 +63,6 @@ export const localCache = {
         }
     },
 
-    /**
-     * Remove all cache keys starting with a prefix or clear all glitch cache.
-     */
     async invalidatePrefix(prefix: string): Promise<void> {
         try {
             const keys = await AsyncStorage.getAllKeys();
@@ -73,6 +72,20 @@ export const localCache = {
             }
         } catch (error) {
             console.error(`LocalCache invalidatePrefix failed for prefix "${prefix}":`, error);
+        }
+    },
+
+    async clearUserData(userId: string): Promise<void> {
+        try {
+            const keys = await AsyncStorage.getAllKeys();
+            const userKeys = keys.filter(k =>
+                k.startsWith(CACHE_PREFIX) && k.includes(userId)
+            );
+            if (userKeys.length > 0) {
+                await AsyncStorage.multiRemove(userKeys);
+            }
+        } catch (error) {
+            console.error('LocalCache clearUserData failed:', error);
         }
     }
 };

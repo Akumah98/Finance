@@ -1,5 +1,6 @@
 import { colors } from "@/constants/colors";
 import { api } from "@/lib/api";
+import { downloadCsvFile } from "@/utils/fileExport";
 import { useAuth } from "@/context/AuthContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import { Ionicons } from "@expo/vector-icons";
@@ -34,7 +35,7 @@ const SettingItem = ({ icon, label, value, type = 'arrow', link }: { icon: any, 
 export default function SettingsScreen() {
   const router = useRouter();
   const { logout, user } = useAuth();
-  const { currency, setCurrencyCode, availableCurrencies } = useCurrency();
+  const { currency, setCurrencyCode, availableCurrencies, figuresHidden, toggleFigures } = useCurrency();
   const [currencyModalVisible, setCurrencyModalVisible] = React.useState(false);
 
   const handleLogout = () => {
@@ -112,6 +113,20 @@ export default function SettingsScreen() {
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Security</Text>
+            <TouchableOpacity onPress={toggleFigures}>
+              <View style={styles.settingItem}>
+                <View style={styles.settingIcon}>
+                  <Ionicons name={figuresHidden ? "eye-off-outline" : "eye-outline"} size={20} color={colors.text} />
+                </View>
+                <Text style={styles.settingLabel}>Hide Balances</Text>
+                <Switch
+                  trackColor={{ false: "#767577", true: colors.primary }}
+                  thumbColor="white"
+                  value={figuresHidden}
+                  onValueChange={toggleFigures}
+                />
+              </View>
+            </TouchableOpacity>
             <SettingItem icon="finger-print-outline" label="Biometric Unlock" type="switch" />
             <SettingItem icon="key-outline" label="Change Password" />
           </View>
@@ -121,30 +136,36 @@ export default function SettingsScreen() {
             <TouchableOpacity onPress={() => {
               Alert.alert('Export Data', 'Choose what to export:', [
                 { text: 'Cancel', style: 'cancel' },
-                { text: 'All Transactions', onPress: async () => {
-                  try {
-                    const { data, error } = await api.get('/export/transactions');
-                    if (error) {
-                      Alert.alert('Error', error);
-                    } else {
-                      Alert.alert('Export Ready', 'Your transaction data has been prepared. In a future update, this will save to your device. For now, use the API endpoint directly: /api/export/transactions');
+                {
+                  text: 'All Transactions', onPress: async () => {
+                    try {
+                      const { data, error } = await api.getText('/export/transactions');
+                      if (error || !data) {
+                        Alert.alert('Error', error || 'Failed to export transactions');
+                      } else {
+                        const filename = `glitch-transactions-${new Date().toISOString().split('T')[0]}.csv`;
+                        await downloadCsvFile(filename, data);
+                      }
+                    } catch {
+                      Alert.alert('Error', 'Export failed');
                     }
-                  } catch {
-                    Alert.alert('Error', 'Export failed');
                   }
-                }},
-                { text: 'Monthly Summary', onPress: async () => {
-                  try {
-                    const { data, error } = await api.get('/export/summary');
-                    if (error) {
-                      Alert.alert('Error', error);
-                    } else {
-                      Alert.alert('Export Ready', 'Your monthly summary has been prepared.');
+                },
+                {
+                  text: 'Monthly Summary', onPress: async () => {
+                    try {
+                      const { data, error } = await api.getText('/export/summary');
+                      if (error || !data) {
+                        Alert.alert('Error', error || 'Failed to export summary');
+                      } else {
+                        const filename = `glitch-summary-${new Date().toISOString().split('T')[0]}.csv`;
+                        await downloadCsvFile(filename, data);
+                      }
+                    } catch {
+                      Alert.alert('Error', 'Export failed');
                     }
-                  } catch {
-                    Alert.alert('Error', 'Export failed');
                   }
-                }}
+                }
               ]);
             }}>
               <View style={styles.settingItem}>

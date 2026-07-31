@@ -62,10 +62,10 @@ export default function GoalsScreen() {
                 setIsLoading(false);
             }
 
-            const { data, error } = await api.get('/savings-goals');
+            const { data } = await api.get('/savings-goals');
             if (data) {
                 setGoals(data);
-                await localCache.set(goalsCacheKey, data, 60 * 60 * 1000); // 1hr TTL
+                await localCache.set(goalsCacheKey, data);
             }
         } catch (error) {
             console.error('Failed to fetch goals');

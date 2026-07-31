@@ -55,8 +55,40 @@ async function request<T = any>(
     }
 }
 
+async function requestText(
+    endpoint: string
+): Promise<ApiResponse<string>> {
+    try {
+        const token = await SecureStore.getItemAsync('userToken');
+
+        const headers: Record<string, string> = {};
+
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const response = await fetch(`${API_URL}${endpoint}`, { method: 'GET', headers });
+
+        if (response.status === 401) {
+            if (logoutCallback) logoutCallback();
+            return { data: null, error: 'Session expired. Please login again.', status: 401 };
+        }
+
+        const text = await response.text();
+
+        if (!response.ok) {
+            return { data: null, error: 'Request failed', status: response.status };
+        }
+
+        return { data: text, error: null, status: response.status };
+    } catch (err: any) {
+        return { data: null, error: err.message || 'Network error', status: 0 };
+    }
+}
+
 export const api = {
     get: <T = any>(endpoint: string) => request<T>('GET', endpoint),
+    getText: (endpoint: string) => requestText(endpoint),
     post: <T = any>(endpoint: string, body?: any) => request<T>('POST', endpoint, body),
     put: <T = any>(endpoint: string, body?: any) => request<T>('PUT', endpoint, body),
     patch: <T = any>(endpoint: string, body?: any) => request<T>('PATCH', endpoint, body),

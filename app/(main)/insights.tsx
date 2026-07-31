@@ -49,7 +49,7 @@ const InsightsScreen = () => {
       const { data } = await api.get(endpoint);
       if (data) {
         setInsightsData(data);
-        await localCache.set(insightsCacheKey, data, 60 * 60 * 1000); // 1hr TTL
+        await localCache.set(insightsCacheKey, data);
       }
     } catch (error) {
       console.error('Failed to fetch insights:', error);

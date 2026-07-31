@@ -28,7 +28,7 @@ export default function ManageCategoriesScreen() {
             const { data, error } = await api.get('/categories');
             if (!error && data) {
                 setCategories(data);
-                await localCache.set(categoriesCacheKey, data, 24 * 60 * 60 * 1000); // 24hr TTL
+                await localCache.set(categoriesCacheKey, data);
             }
         } catch (error) {
             console.log('Failed to fetch categories');
@@ -46,8 +46,8 @@ export default function ManageCategoriesScreen() {
             const { error } = await api.post('/categories', {
                 name: newCategoryName,
                 type: newCategoryType,
-                icon: 'shape', // Default icon
-                color: newCategoryType === 'expense' ? '#EF4444' : '#10B981' // Default colors
+                icon: 'shape',
+                color: newCategoryType === 'expense' ? '#EF4444' : '#10B981'
             });
 
             if (!error) {

@@ -1,7 +1,7 @@
 const cacheStore = new Map();
 
-// Default 1 hour TTL (in ms)
-const DEFAULT_TTL_MS = 60 * 60 * 1000;
+// 6 hour TTL — insights only change when transactions/bills change
+const DEFAULT_TTL_MS = 6 * 60 * 60 * 1000;
 
 function get(userId) {
     const key = userId.toString();

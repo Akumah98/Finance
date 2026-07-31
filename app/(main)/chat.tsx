@@ -42,6 +42,7 @@ export default function ChatScreen() {
     const [inputText, setInputText] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isClearing, setIsClearing] = useState(false);
+    const [cooldown, setCooldown] = useState(false);
     const flatListRef = useRef<FlatList>(null);
 
     useEffect(() => {
@@ -61,7 +62,7 @@ export default function ChatScreen() {
                 setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 50);
             }
 
-            const { data, error } = await api.get('/chat');
+            const { data } = await api.get('/chat');
             if (data) {
                 setMessages(data);
                 await localCache.set(chatCacheKey, data);
@@ -93,7 +94,7 @@ export default function ChatScreen() {
     };
 
     const handleSend = async () => {
-        if (!inputText.trim()) return;
+        if (!inputText.trim() || cooldown) return;
 
         const userMsg = { _id: Date.now().toString(), text: inputText, role: 'user', createdAt: new Date() };
         const updatedWithUser = [...messages, userMsg];
@@ -102,8 +103,12 @@ export default function ChatScreen() {
         setInputText('');
         setIsLoading(true);
 
+        // 3-second cooldown to prevent spamming LLM API
+        setCooldown(true);
+        setTimeout(() => setCooldown(false), 3000);
+
         try {
-            const { data: aiMsg, error } = await api.post('/chat', { text: userMsg.text });
+            const { data: aiMsg } = await api.post('/chat', { text: userMsg.text });
             if (aiMsg) {
                 setMessages(prev => {
                     const finalMsgs = [...prev, aiMsg];
@@ -111,7 +116,7 @@ export default function ChatScreen() {
                     return finalMsgs;
                 });
             }
-        } catch (error) {
+        } catch {
             console.error('Failed to send message');
         } finally {
             setIsLoading(false);
@@ -187,9 +192,9 @@ export default function ChatScreen() {
                             onSubmitEditing={handleSend}
                         />
                         <TouchableOpacity
-                            style={[styles.sendButton, !inputText.trim() && { opacity: 0.5 }]}
+                            style={[styles.sendButton, (!inputText.trim() || cooldown) && { opacity: 0.5 }]}
                             onPress={handleSend}
-                            disabled={!inputText.trim() || isLoading}
+                            disabled={!inputText.trim() || isLoading || cooldown}
                         >
                             {isLoading ? (
                                 <ActivityIndicator color="white" size="small" />

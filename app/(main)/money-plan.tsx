@@ -1,5 +1,6 @@
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
+import { localCache } from "@/lib/localCache";
 import { MoneyPlanSkeleton } from "@/components/shimmer/MoneyPlanSkeleton";
 import { useCurrency } from "@/context/CurrencyContext";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -111,15 +112,27 @@ export default function MoneyPlanScreen() {
 
   const userId = user?.id || user?._id;
 
+  const moneyPlanCacheKey = `moneyplan_${userId}`;
+
   const fetchPlan = async () => {
     if (!userId) return;
     try {
+      const cached = await localCache.get<MoneyPlanData>(moneyPlanCacheKey);
+      if (cached) {
+        setData(cached);
+        setEditNeeds(String(cached.plan.needsPct));
+        setEditWants(String(cached.plan.wantsPct));
+        setEditFuture(String(cached.plan.futurePct));
+        setLoading(false);
+      }
+
       const { data: json, error } = await api.get('/money-plan');
       if (!error && json) {
         setData(json);
         setEditNeeds(String(json.plan.needsPct));
         setEditWants(String(json.plan.wantsPct));
         setEditFuture(String(json.plan.futurePct));
+        await localCache.set(moneyPlanCacheKey, json);
       }
     } catch {
       // silent — show stale data if available

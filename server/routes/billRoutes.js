@@ -3,6 +3,7 @@ const router = express.Router();
 const Bill = require('../models/Bill');
 const BillHistory = require('../models/BillHistory');
 const { protect } = require('../middleware/authMiddleware');
+const insightsCache = require('../services/insightsCache');
 
 router.use(protect);
 
@@ -54,6 +55,7 @@ router.post('/', async (req, res) => {
             billCreatedAt: savedBill.createdAt
         }).save();
 
+        insightsCache.invalidate(req.user._id);
         res.status(201).json(savedBill);
     } catch (err) {
         res.status(400).json({ message: err.message });

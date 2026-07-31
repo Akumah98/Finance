@@ -12,6 +12,29 @@ const { chatWithFallback } = require('../services/aiProvider');
 
 router.use(protect);
 
+// Per-user rate limiter: max 30 messages per hour to protect LLM quota
+const userMessageCounts = new Map();
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const RATE_LIMIT_MAX = 30;
+
+function checkRateLimit(userId) {
+    const key = userId.toString();
+    const now = Date.now();
+    const entry = userMessageCounts.get(key);
+
+    if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+        userMessageCounts.set(key, { windowStart: now, count: 1 });
+        return true;
+    }
+
+    if (entry.count >= RATE_LIMIT_MAX) {
+        return false;
+    }
+
+    entry.count++;
+    return true;
+}
+
 const buildSystemPrompt = (context, ragContext, ragTransactions = []) => {
     const { income, expenses, savingsRate, topCategories, budgetStatus, overdueBills, goals, plan, recentTransactions = [] } = context;
 
@@ -154,12 +177,12 @@ async function retrieveRelevantHistory(userId, queryText, excludeIds = []) {
             // Atlas Vector Search not available, fall through to cosine fallback
         }
 
-        // Fallback: in-memory cosine similarity
+        // Fallback: in-memory cosine similarity (reduced from 100 to 50)
         const messages = await Message.find({
             userId,
             embedding: { $exists: true, $ne: [] },
             _id: { $nin: excludeIds }
-        }).sort({ createdAt: -1 }).limit(100).lean();
+        }).sort({ createdAt: -1 }).limit(50).lean();
 
         if (messages.length === 0) return [];
 
@@ -210,11 +233,11 @@ async function retrieveRelevantTransactions(userId, queryText) {
             // Atlas Vector Search not configured or failed, fall through to in-memory cosine fallback
         }
 
-        // Fallback: in-memory cosine similarity search
+        // Fallback: in-memory cosine similarity search (reduced from 200 to 100)
         const transactions = await Transaction.find({
             userId,
             embedding: { $exists: true, $ne: [] }
-        }).sort({ date: -1 }).limit(200).lean();
+        }).sort({ date: -1 }).limit(100).lean();
 
         if (transactions.length === 0) return [];
 
@@ -274,26 +297,41 @@ router.post('/', async (req, res) => {
         return res.status(400).json({ message: 'text is required' });
     }
 
+    if (!checkRateLimit(userId)) {
+        return res.status(429).json({
+            message: "You've reached the message limit (30/hour). Please try again later.",
+            role: 'assistant',
+            text: "You've sent a lot of messages! To keep things running smoothly, please wait a bit before sending more. Your limit resets every hour."
+        });
+    }
+
     try {
         // 1. Save user message
         const userMessage = new Message({ userId, text, role: 'user' });
         await userMessage.save();
 
-        // 2. Fetch recent history (last 20 messages for direct context window)
+        // 2. Fetch recent history (last 12 messages for direct context window — reduced from 20)
         const history = await Message.find({ userId })
             .sort({ createdAt: -1 })
-            .limit(21)
+            .limit(13)
             .select('-embedding')
             .then(msgs => msgs.reverse());
 
         const priorHistory = history.slice(0, -1);
 
-        // 3. RAG: retrieve semantically relevant past messages AND semantically relevant transactions
-        const recentIds = history.map(m => m._id);
-        const [ragContext, ragTransactions] = await Promise.all([
-            retrieveRelevantHistory(userId, text, recentIds),
-            retrieveRelevantTransactions(userId, text)
-        ]);
+        // 3. RAG: skip for trivial/short messages to save LLM embedding calls
+        const isTrivial = text.length < 10 || /^(hi|hey|hello|thanks|thank you|ok|okay|bye|good|great|nice|cool|sure|yes|no|yep|nope)\b/i.test(text.trim());
+
+        let ragContext = [];
+        let ragTransactions = [];
+
+        if (!isTrivial) {
+            const recentIds = history.map(m => m._id);
+            [ragContext, ragTransactions] = await Promise.all([
+                retrieveRelevantHistory(userId, text, recentIds),
+                retrieveRelevantTransactions(userId, text)
+            ]);
+        }
 
         // 4. Build Gemini chat history format
         const geminiHistory = priorHistory.map(m => ({
@@ -314,13 +352,15 @@ router.post('/', async (req, res) => {
 
         res.json(aiMessage);
 
-        // 8. Fire-and-forget: embed both messages for future RAG retrieval
-        generateEmbedding(buildMessageText(userMessage)).then(emb => {
-            if (emb) Message.findByIdAndUpdate(userMessage._id, { embedding: emb }).catch(() => {});
-        });
-        generateEmbedding(buildMessageText(aiMessage)).then(emb => {
-            if (emb) Message.findByIdAndUpdate(aiMessage._id, { embedding: emb }).catch(() => {});
-        });
+        // 8. Fire-and-forget: embed messages for future RAG (skip trivial ones to save API calls)
+        if (!isTrivial) {
+            generateEmbedding(buildMessageText(userMessage)).then(emb => {
+                if (emb) Message.findByIdAndUpdate(userMessage._id, { embedding: emb }).catch(() => {});
+            });
+            generateEmbedding(buildMessageText(aiMessage)).then(emb => {
+                if (emb) Message.findByIdAndUpdate(aiMessage._id, { embedding: emb }).catch(() => {});
+            });
+        }
     } catch (err) {
         console.error('Gemini chat error:', err);
 

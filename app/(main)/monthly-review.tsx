@@ -1,5 +1,6 @@
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
+import { localCache } from "@/lib/localCache";
 import { MonthlyReviewSkeleton } from "@/components/shimmer/MonthlyReviewSkeleton";
 import { useCurrency } from "@/context/CurrencyContext";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -113,9 +114,19 @@ export default function MonthlyReviewScreen() {
   const fetchReview = async (idx: number) => {
     if (!userId) return;
     const { year, month } = monthOptions[idx];
+    const reviewCacheKey = `review_${userId}_${year}_${month}`;
     try {
+      const cached = await localCache.get<ReviewData>(reviewCacheKey);
+      if (cached) {
+        setData(cached);
+        setLoading(false);
+      }
+
       const { data: json, error } = await api.get(`/monthly-review?year=${year}&month=${month}`);
-      if (!error && json) setData(json);
+      if (!error && json) {
+        setData(json);
+        await localCache.set(reviewCacheKey, json);
+      }
     } catch {
       // silent
     } finally {

@@ -51,7 +51,7 @@ const TransactionsScreen = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date()); // For month/year selection
 
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   const [transactions, setTransactions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -63,19 +63,17 @@ const TransactionsScreen = () => {
 
   const fetchTransactions = async () => {
     try {
-      // 1. Try local cache first for instant load
       const cached = await localCache.get<any[]>(cacheKey);
       if (cached && cached.length > 0) {
         setTransactions(cached);
         setIsLoading(false);
       }
 
-      // 2. Fetch fresh data from backend
       const { data } = await api.get('/transactions');
       if (data) {
         const list = data.transactions || data;
         setTransactions(list);
-        await localCache.set(cacheKey, list, 15 * 60 * 1000); // 15 min TTL
+        await localCache.set(cacheKey, list); // persistent - no TTL
       }
     } catch (error) {
       console.error('Failed to fetch transactions', error);
@@ -91,7 +89,7 @@ const TransactionsScreen = () => {
       if (!error) {
         setTransactions(prev => {
           const updated = prev.filter(t => (t._id || t.id) !== id);
-          localCache.set(cacheKey, updated, 15 * 60 * 1000);
+          localCache.set(cacheKey, updated);
           return updated;
         });
       } else {

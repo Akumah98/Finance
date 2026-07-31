@@ -104,10 +104,10 @@ const BudgetsScreen = () => {
                 setIsLoading(false);
             }
 
-            const { data, error } = await api.get('/budgets');
+            const { data } = await api.get('/budgets');
             if (data) {
                 setBudgets(data);
-                await localCache.set(budgetsCacheKey, data, 60 * 60 * 1000); // 1hr TTL
+                await localCache.set(budgetsCacheKey, data);
             }
         } catch (error) {
             console.error("Failed to fetch budgets:", error);
