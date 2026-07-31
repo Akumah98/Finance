@@ -47,7 +47,15 @@ yarn-error.*
 .env
 .env*.local
 
-# Misc
+# Misc & Graphify Tooling
 .early.coverage
 *.tsbuildinfo
 *.orig.*
+.graphify/
+graphify/
+*.graphify
+*.log
+scratch/
+.system_generated/
+.gemini/
+coverage/

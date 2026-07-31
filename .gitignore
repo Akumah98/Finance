@@ -49,3 +49,18 @@ app-example
 # Planning and Docs
 *.md
 *.docx
+docs/
+
+# Graphify & Analysis Tooling
+.graphify/
+graphify/
+*.graphify
+.qodo/
+.vscode/
+
+# Logs and scratch
+*.log
+scratch/
+.system_generated/
+.gemini/
+coverage/
