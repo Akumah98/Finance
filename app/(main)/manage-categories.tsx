@@ -1,6 +1,7 @@
 import { colors } from "@/constants/colors";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
+import { localCache } from "@/lib/localCache";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
@@ -17,11 +18,17 @@ export default function ManageCategoriesScreen() {
     const [newCategoryName, setNewCategoryName] = useState('');
     const [newCategoryType, setNewCategoryType] = useState<'expense' | 'income'>('expense');
 
+    const categoriesCacheKey = `categories_${user?._id || user?.id || 'guest'}`;
+
     const fetchCategories = async () => {
         try {
+            const cached = await localCache.get<any[]>(categoriesCacheKey);
+            if (cached) setCategories(cached);
+
             const { data, error } = await api.get('/categories');
             if (!error && data) {
                 setCategories(data);
+                await localCache.set(categoriesCacheKey, data, 24 * 60 * 60 * 1000); // 24hr TTL
             }
         } catch (error) {
             console.log('Failed to fetch categories');

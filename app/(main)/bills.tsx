@@ -1,5 +1,6 @@
 import { colors } from "@/constants/colors";
 import { api } from "@/lib/api";
+import { localCache } from "@/lib/localCache";
 import { useAuth } from "@/context/AuthContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import { FontAwesome5, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -7,7 +8,7 @@ import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { Link, useFocusEffect, useRouter } from "expo-router";
 import React, { useState } from "react";
-import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 const SectionHeader = ({ title, icon }: { title: string, icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'] }) => (
@@ -28,10 +29,19 @@ const BillsScreen = () => {
   const [billHistory, setBillHistory] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  const billsCacheKey = `bills_${user?._id || user?.id || 'guest'}`;
+  const historyCacheKey = `bills_history_${user?._id || user?.id || 'guest'}`;
+
   const fetchBillHistory = async () => {
     try {
+      const cached = await localCache.get<any[]>(historyCacheKey);
+      if (cached) setBillHistory(cached);
+
       const { data } = await api.get('/bills/history');
-      if (data) setBillHistory(data);
+      if (data) {
+        setBillHistory(data);
+        await localCache.set(historyCacheKey, data, 15 * 60 * 1000);
+      }
     } catch (error) {
       console.error('Failed to fetch history');
     }
@@ -39,9 +49,18 @@ const BillsScreen = () => {
 
   const fetchBills = async () => {
     try {
-      setIsLoading(true);
+      const cached = await localCache.get<any[]>(billsCacheKey);
+      if (cached) {
+        setBills(cached);
+      } else {
+        setIsLoading(true);
+      }
+
       const { data } = await api.get('/bills');
-      if (data) setBills(data);
+      if (data) {
+        setBills(data);
+        await localCache.set(billsCacheKey, data, 15 * 60 * 1000);
+      }
       fetchBillHistory();
     } catch (error) {
       console.error('Failed to fetch bills');
@@ -49,6 +68,17 @@ const BillsScreen = () => {
       setIsLoading(false);
     }
   };
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await fetchBills();
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -288,7 +318,12 @@ const BillsScreen = () => {
           </View>
         </Modal>
 
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
+          }
+        >
           <View style={styles.header}>
             <Text style={styles.headerTitle}>Bills & Income</Text>
             <Text style={styles.headerSubtitle}>Manage your recurring transactions</Text>

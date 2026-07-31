@@ -10,6 +10,7 @@ import {
     Alert,
     KeyboardAvoidingView,
     Platform,
+    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
@@ -29,10 +30,21 @@ export default function ProfileScreen() {
     const [isSaving, setIsSaving] = useState(false);
     const [stats, setStats] = useState<any>(null);
 
+    const [refreshing, setRefreshing] = useState(false);
+
+    const onRefresh = React.useCallback(async () => {
+        setRefreshing(true);
+        try {
+            await fetchStats();
+        } finally {
+            setRefreshing(false);
+        }
+    }, [user]);
+
     useEffect(() => {
         if (user) {
-            setUserName(user.userName);
-            setEmail(user.email);
+            setUserName(user.userName || '');
+            setEmail(user.email || '');
             fetchStats();
         }
     }, [user]);
@@ -105,7 +117,12 @@ export default function ProfileScreen() {
                 </View>
 
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-                    <ScrollView contentContainerStyle={styles.content}>
+                    <ScrollView
+                        contentContainerStyle={styles.content}
+                        refreshControl={
+                            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
+                        }
+                    >
 
                         {/* Avatar Section */}
                         <View style={styles.avatarContainer}>

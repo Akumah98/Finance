@@ -6,6 +6,8 @@ const Bill = require('../models/Bill');
 const SavingsGoal = require('../models/SavingsGoal');
 const { analyzeSpending } = require('../utils/spendingAnalysis');
 const { generateAIInsights } = require('../services/aiInsightsService');
+const { calculateHealthScore } = require('../services/healthScoreService');
+const insightsCache = require('../services/insightsCache');
 const { protect } = require('../middleware/authMiddleware');
 
 router.use(protect);
@@ -13,6 +15,7 @@ router.use(protect);
 router.get('/', async (req, res) => {
     try {
         const userId = req.user._id;
+        const forceRefresh = req.query.force === 'true';
         const now = new Date();
         const currentMonth = now.getMonth();
         const currentYear = now.getFullYear();
@@ -72,18 +75,35 @@ router.get('/', async (req, res) => {
         // Generate rule-based insights as fallback
         const ruleBasedInsights = analyzeSpending(transactions, budgets);
 
-        // Try AI-powered insights
-        const aiResult = await generateAIInsights({
-            totalIncome,
-            totalExpenses,
-            savingsRate,
-            categorySpending,
-            lastMonthCategorySpending,
-            budgets,
-            recentTransactions: thisMonthTransactions.slice(0, 20),
-            billsUpcoming: bills,
-            goals: goals || []
-        });
+        // Try AI-powered insights (with server-side cache check to save LLM quota)
+        let aiResult = !forceRefresh ? insightsCache.get(userId) : null;
+
+        if (!aiResult) {
+            aiResult = await generateAIInsights({
+                totalIncome,
+                totalExpenses,
+                savingsRate,
+                categorySpending,
+                lastMonthCategorySpending,
+                budgets,
+                recentTransactions: thisMonthTransactions.slice(0, 20),
+                billsUpcoming: bills,
+                goals: goals || []
+            });
+
+            if (aiResult && aiResult.success) {
+                insightsCache.set(userId, aiResult);
+            }
+        }
+
+        // Calculate unified exact health score
+        const healthScoreData = await calculateHealthScore(userId);
+        const unifiedScore = {
+            value: healthScoreData.score,
+            label: healthScoreData.grade,
+            color: healthScoreData.color,
+            tip: healthScoreData.tip,
+        };
 
         if (aiResult.success) {
             const ai = aiResult.insights;
@@ -96,7 +116,7 @@ router.get('/', async (req, res) => {
                 cashFlowForecast: ruleBasedInsights.cashFlowForecast,
                 anomalies: ai.anomalies || [],
                 predictiveBudget: ai.predictiveBudget || null,
-                score: ai.score || null,
+                score: unifiedScore,
                 aiPowered: true
             });
         } else {
@@ -104,7 +124,7 @@ router.get('/', async (req, res) => {
                 ...ruleBasedInsights,
                 anomalies: [],
                 predictiveBudget: null,
-                score: null,
+                score: unifiedScore,
                 aiPowered: false
             });
         }

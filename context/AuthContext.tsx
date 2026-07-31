@@ -40,9 +40,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 const storedUser = await SecureStore.getItemAsync('userData');
 
                 if (storedToken) {
-                    // 1. Optimistically set state from storage first (optional, prevents flash)
-                    // setToken(storedToken);
-                    // if (storedUser) setUser(JSON.parse(storedUser));
+                    // 1. Optimistically set state from storage first to prevent flash
+                    setToken(storedToken);
+                    if (storedUser) setUser(JSON.parse(storedUser));
 
                     // 2. Verify with backend
                     try {

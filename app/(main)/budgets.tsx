@@ -1,4 +1,5 @@
 import { api } from "@/lib/api";
+import { localCache } from "@/lib/localCache";
 import { useAuth } from "@/context/AuthContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import { formatAmount as formatInputAmount, parseAmount } from "@/utils/inputValidation";
@@ -14,6 +15,7 @@ import {
     KeyboardAvoidingView,
     Modal,
     Platform,
+    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
@@ -90,12 +92,21 @@ const BudgetsScreen = () => {
     const [category, setCategory] = useState("");
     const [amount, setAmount] = useState("");
 
+    const budgetsCacheKey = `budgets_${user?._id || user?.id || 'guest'}`;
+
     const fetchBudgets = async () => {
         if (!user) return;
         try {
+            const cached = await localCache.get<any[]>(budgetsCacheKey);
+            if (cached) {
+                setBudgets(cached);
+                setIsLoading(false);
+            }
+
             const { data, error } = await api.get('/budgets');
             if (data) {
                 setBudgets(data);
+                await localCache.set(budgetsCacheKey, data, 60 * 60 * 1000); // 1hr TTL
             }
         } catch (error) {
             console.error("Failed to fetch budgets:", error);
@@ -103,6 +114,17 @@ const BudgetsScreen = () => {
             setIsLoading(false);
         }
     };
+
+    const [refreshing, setRefreshing] = useState(false);
+
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        try {
+            await fetchBudgets();
+        } finally {
+            setRefreshing(false);
+        }
+    }, [user]);
 
     useFocusEffect(
         useCallback(() => {
@@ -235,6 +257,9 @@ const BudgetsScreen = () => {
                     removeClippedSubviews
                     maxToRenderPerBatch={10}
                     windowSize={10}
+                    refreshControl={
+                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
+                    }
                     ListEmptyComponent={
                         <View style={styles.emptyState}>
                             <Ionicons name="wallet-outline" size={64} color={colors.textMuted} />

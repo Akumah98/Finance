@@ -1,5 +1,6 @@
 "use client";
 import { api } from "@/lib/api";
+import { localCache } from "@/lib/localCache";
 import { useAuth } from "@/context/AuthContext";
 import { calculateLevel, getProgressToNextLevel, getTierEmoji, getTierName } from '@/utils/achievementLevels';
 import { formatAmount as formatInputAmount, parseAmount } from "@/utils/inputValidation";
@@ -13,6 +14,7 @@ import {
   Alert,
   Animated,
   Modal,
+  RefreshControl,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -111,8 +113,15 @@ export default function DashboardScreen() {
   const fetchGoals = async () => {
     if (!user) return;
     try {
+      const uKey = `goals_${user._id || user.id}`;
+      const cached = await localCache.get<any[]>(uKey);
+      if (cached) setGoals(cached);
+
       const { data } = await api.get('/savings-goals');
-      if (data) setGoals(data);
+      if (data) {
+        setGoals(data);
+        await localCache.set(uKey, data, 60 * 60 * 1000);
+      }
     } catch (error) {
       console.error('Failed to fetch goals');
     }
@@ -121,8 +130,16 @@ export default function DashboardScreen() {
   const fetchTransactions = async () => {
     if (!user) return;
     try {
+      const uKey = `transactions_${user._id || user.id}`;
+      const cached = await localCache.get<any[]>(uKey);
+      if (cached) setTransactions(cached);
+
       const { data } = await api.get('/transactions');
-      if (data) setTransactions(data.transactions || data);
+      if (data) {
+        const list = data.transactions || data;
+        setTransactions(list);
+        await localCache.set(uKey, list, 15 * 60 * 1000);
+      }
     } catch (error) {
       console.error('Failed to fetch transactions');
     }
@@ -131,8 +148,15 @@ export default function DashboardScreen() {
   const fetchBills = async () => {
     if (!user) return;
     try {
+      const uKey = `bills_${user._id || user.id}`;
+      const cached = await localCache.get<any[]>(uKey);
+      if (cached) setBills(cached);
+
       const { data } = await api.get('/bills');
-      if (data) setBills(data);
+      if (data) {
+        setBills(data);
+        await localCache.set(uKey, data, 15 * 60 * 1000);
+      }
     } catch (error) {
       console.error('Failed to fetch bills');
     }
@@ -141,8 +165,15 @@ export default function DashboardScreen() {
   const fetchHealthScore = async () => {
     if (!user) return;
     try {
+      const uKey = `healthscore_${user._id || user.id}`;
+      const cached = await localCache.get<any>(uKey);
+      if (cached) setHealthScore(cached);
+
       const { data } = await api.get('/health-score');
-      if (data) setHealthScore(data);
+      if (data) {
+        setHealthScore(data);
+        await localCache.set(uKey, data, 30 * 60 * 1000);
+      }
     } catch {
       // silent — card just won't render
     }
@@ -151,6 +182,18 @@ export default function DashboardScreen() {
   const fetchUserStats = async () => {
     if (!user) return;
     try {
+      const uKey = `userstats_${user._id || user.id}`;
+      const cached = await localCache.get<any>(uKey);
+      if (cached) {
+        setDashboardData(prev => ({ ...prev, streak: cached.streak || 0 }));
+        setUserAchievements(cached.achievements || {
+          budgetMaster: false,
+          savingsPro: false,
+          streakKing: false,
+          debtSlayer: false
+        });
+      }
+
       const { data } = await api.get(`/users/${user.id || user._id}/stats`);
       if (data) {
         setDashboardData(prev => ({ ...prev, streak: data.streak || 0 }));
@@ -160,6 +203,7 @@ export default function DashboardScreen() {
           streakKing: false,
           debtSlayer: false
         });
+        await localCache.set(uKey, data, 30 * 60 * 1000);
       }
     } catch (error) {
       console.error('Failed to fetch user stats');
@@ -179,14 +223,35 @@ export default function DashboardScreen() {
     }
   };
 
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadAllData = useCallback(async () => {
+    await Promise.all([
+      fetchGoals(),
+      fetchTransactions(),
+      fetchBills(),
+      fetchUserStats(),
+      fetchHealthScore(),
+    ]);
+  }, [user]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await loadAllData();
+    } catch (e) {
+      console.error('Refresh failed', e);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [loadAllData]);
+
   useFocusEffect(
     useCallback(() => {
-      fetchGoals();
-      fetchTransactions();
-      fetchBills();
-      fetchUserStats();
-      fetchHealthScore();
-    }, [user])
+      if (user) {
+        loadAllData();
+      }
+    }, [user, loadAllData])
   );
 
   useEffect(() => {
@@ -485,7 +550,18 @@ export default function DashboardScreen() {
           style={StyleSheet.absoluteFill}
         />
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 40 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+            />
+          }
+        >
 
           {/* Offline Banner */}
           {isOffline && (
@@ -502,9 +578,18 @@ export default function DashboardScreen() {
               <Text style={styles.greeting}>{greeting}</Text>
               <Text style={styles.userName}>{user?.userName ? user.userName.split(' ')[0] : 'User'}</Text>
             </View>
-            <TouchableOpacity style={styles.avatar}>
-              <Text style={styles.avatarText}>{user?.userName ? user.userName.charAt(0).toUpperCase() : 'U'}</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <TouchableOpacity
+                style={styles.chatHeaderBtn}
+                onPress={() => router.push('/(main)/chat')}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="chatbubble-ellipses-outline" size={22} color={colors.text} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.avatar} onPress={() => router.push('/(main)/profile')}>
+                <Text style={styles.avatarText}>{user?.userName ? user.userName.charAt(0).toUpperCase() : 'U'}</Text>
+              </TouchableOpacity>
+            </View>
           </Animated.View>
 
           {/* Financial Health Score Card */}
@@ -895,6 +980,20 @@ export default function DashboardScreen() {
 
         </ScrollView>
 
+        {/* Floating AI Assistant Chat Button */}
+        <TouchableOpacity
+          style={styles.floatingChatBtn}
+          onPress={() => router.push('/(main)/chat')}
+          activeOpacity={0.85}
+        >
+          <LinearGradient
+            colors={[colors.gradient1, colors.primary]}
+            style={styles.floatingChatGradient}
+          >
+            <Ionicons name="sparkles" size={24} color="white" />
+          </LinearGradient>
+        </TouchableOpacity>
+
         <Modal
           animationType="fade"
           transparent={true}
@@ -956,8 +1055,39 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 20, paddingTop: 10 },
   greeting: { color: colors.textMuted, fontSize: 16, fontWeight: "500" },
   userName: { color: colors.text, fontSize: 32, fontWeight: "800", marginTop: 4 },
+  chatHeaderBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.glass,
+    borderWidth: 1,
+    borderColor: colors.border,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: "#8B5CF6", justifyContent: "center", alignItems: "center" },
   avatarText: { color: "white", fontSize: 20, fontWeight: "bold" },
+  floatingChatBtn: {
+    position: 'absolute',
+    bottom: 24,
+    right: 20,
+    borderRadius: 30,
+    elevation: 8,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    zIndex: 999,
+  },
+  floatingChatGradient: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
   aiSummaryCard: {
     margin: 20,
     borderRadius: 24,

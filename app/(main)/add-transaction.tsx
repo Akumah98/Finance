@@ -1,5 +1,6 @@
 import { colors } from "@/constants/colors";
 import { api } from "@/lib/api";
+import { localCache } from "@/lib/localCache";
 import { useAuth } from "@/context/AuthContext";
 import { useOffline } from "@/context/OfflineContext";
 import { formatAmount as formatInputAmount, parseAmount } from "@/utils/inputValidation";
@@ -141,6 +142,11 @@ export default function AddTransactionScreen() {
                 if (deleteGoalId) {
                     await api.delete(`/savings-goals/${deleteGoalId}`);
                 }
+
+                // Invalidate offline cache
+                localCache.invalidatePrefix('transactions_');
+                localCache.invalidatePrefix('insights_');
+                localCache.invalidatePrefix('healthscore_');
 
                 Alert.alert('Success', `Transaction ${isEditing ? 'updated' : 'saved'} successfully${deleteGoalId ? ' and Goal deleted' : ''}`, [
                     {

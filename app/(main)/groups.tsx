@@ -2,12 +2,18 @@ import { colors } from "@/constants/colors";
 import { FontAwesome5, Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useState } from "react";
+import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 export default function GroupsScreen() {
     const router = useRouter();
+    const [refreshing, setRefreshing] = useState(false);
+
+    const onRefresh = React.useCallback(async () => {
+        setRefreshing(true);
+        setTimeout(() => setRefreshing(false), 800);
+    }, []);
 
     return (
         <SafeAreaProvider>
@@ -22,37 +28,44 @@ export default function GroupsScreen() {
                     <View style={{ width: 40 }} />
                 </View>
 
-                <View style={styles.comingSoonContainer}>
-                    <View style={styles.iconCircle}>
-                        <FontAwesome5 name="users" size={48} color={colors.primary} />
+                <ScrollView
+                    contentContainerStyle={{ flexGrow: 1 }}
+                    refreshControl={
+                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
+                    }
+                >
+                    <View style={styles.comingSoonContainer}>
+                        <View style={styles.iconCircle}>
+                            <FontAwesome5 name="users" size={48} color={colors.primary} />
+                        </View>
+                        <Text style={styles.comingSoonTitle}>Coming Soon</Text>
+                        <Text style={styles.comingSoonText}>
+                            Split expenses with friends, track group spending, and settle debts — all in one place.
+                        </Text>
+                        <View style={styles.featureList}>
+                            <View style={styles.featureItem}>
+                                <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                                <Text style={styles.featureText}>Create shared wallets</Text>
+                            </View>
+                            <View style={styles.featureItem}>
+                                <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                                <Text style={styles.featureText}>Split bills automatically</Text>
+                            </View>
+                            <View style={styles.featureItem}>
+                                <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                                <Text style={styles.featureText}>Track who owes what</Text>
+                            </View>
+                            <View style={styles.featureItem}>
+                                <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                                <Text style={styles.featureText}>Settle up with one tap</Text>
+                            </View>
+                        </View>
+                        <View style={styles.badge}>
+                            <Ionicons name="time-outline" size={16} color={colors.accent} />
+                            <Text style={styles.badgeText}>In Development</Text>
+                        </View>
                     </View>
-                    <Text style={styles.comingSoonTitle}>Coming Soon</Text>
-                    <Text style={styles.comingSoonText}>
-                        Split expenses with friends, track group spending, and settle debts — all in one place.
-                    </Text>
-                    <View style={styles.featureList}>
-                        <View style={styles.featureItem}>
-                            <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
-                            <Text style={styles.featureText}>Create shared wallets</Text>
-                        </View>
-                        <View style={styles.featureItem}>
-                            <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
-                            <Text style={styles.featureText}>Split bills automatically</Text>
-                        </View>
-                        <View style={styles.featureItem}>
-                            <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
-                            <Text style={styles.featureText}>Track who owes what</Text>
-                        </View>
-                        <View style={styles.featureItem}>
-                            <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
-                            <Text style={styles.featureText}>Settle up with one tap</Text>
-                        </View>
-                    </View>
-                    <View style={styles.badge}>
-                        <Ionicons name="time-outline" size={16} color={colors.accent} />
-                        <Text style={styles.badgeText}>In Development</Text>
-                    </View>
-                </View>
+                </ScrollView>
 
             </SafeAreaView>
         </SafeAreaProvider>

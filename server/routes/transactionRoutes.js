@@ -3,6 +3,7 @@ const router = express.Router();
 const Transaction = require('../models/Transaction');
 const { protect } = require('../middleware/authMiddleware');
 const { generateEmbedding, generateEmbeddings, buildTransactionText } = require('../services/embeddingService');
+const insightsCache = require('../services/insightsCache');
 
 // Apply protection to all routes
 router.use(protect);
@@ -66,6 +67,7 @@ router.post('/', async (req, res) => {
 
         // Generate embedding asynchronously (don't block response)
         const savedTransaction = await newTransaction.save();
+        insightsCache.invalidate(req.user.id);
         res.status(201).json(savedTransaction);
 
         // Fire-and-forget embedding generation

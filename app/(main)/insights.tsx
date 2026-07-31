@@ -1,4 +1,5 @@
 import { api } from "@/lib/api";
+import { localCache } from "@/lib/localCache";
 import { useAuth } from "@/context/AuthContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -10,6 +11,7 @@ import {
   ActivityIndicator,
   Dimensions,
   Platform,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -29,12 +31,24 @@ const InsightsScreen = () => {
   const [insightsData, setInsightsData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchInsights = async () => {
+  const insightsCacheKey = `insights_${user?._id || user?.id || 'guest'}`;
+
+  const fetchInsights = async (force: boolean = false) => {
     if (!user) return;
     try {
-      const { data, error } = await api.get('/insights');
+      if (!force) {
+        const cached = await localCache.get<any>(insightsCacheKey);
+        if (cached) {
+          setInsightsData(cached);
+          setIsLoading(false);
+        }
+      }
+
+      const endpoint = force ? '/insights?force=true' : '/insights';
+      const { data } = await api.get(endpoint);
       if (data) {
         setInsightsData(data);
+        await localCache.set(insightsCacheKey, data, 60 * 60 * 1000); // 1hr TTL
       }
     } catch (error) {
       console.error('Failed to fetch insights:', error);
@@ -42,6 +56,17 @@ const InsightsScreen = () => {
       setIsLoading(false);
     }
   };
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await fetchInsights(true);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [user]);
 
   useFocusEffect(
     useCallback(() => {
@@ -77,6 +102,9 @@ const InsightsScreen = () => {
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#8B5CF6" colors={["#8B5CF6"]} />
+          }
         >
           {/* Header */}
           <Animated.View entering={FadeInDown.duration(600)}>
@@ -269,12 +297,20 @@ const InsightsScreen = () => {
               <Text style={styles.sectionTitle}>Financial Health</Text>
               <BlurView intensity={80} style={styles.glassCard}>
                 <View style={styles.scoreContainer}>
-                  <View style={styles.scoreCircle}>
+                  <View style={[
+                    styles.scoreCircle,
+                    insightsData.score.color ? { borderColor: insightsData.score.color, backgroundColor: insightsData.score.color + '15' } : null
+                  ]}>
                     <Text style={styles.scoreValue}>{insightsData.score.value}</Text>
                     <Text style={styles.scoreMax}>/100</Text>
                   </View>
                   <View style={styles.scoreDetails}>
-                    <Text style={styles.scoreLabel}>{insightsData.score.label}</Text>
+                    <Text style={[
+                      styles.scoreLabel,
+                      insightsData.score.color ? { color: insightsData.score.color } : null
+                    ]}>
+                      {insightsData.score.label}
+                    </Text>
                     <Text style={styles.scoreTip}>{insightsData.score.tip}</Text>
                   </View>
                 </View>
@@ -497,9 +533,9 @@ const styles = StyleSheet.create({
 
   // Health Score
   scoreContainer: { flexDirection: 'row', alignItems: 'center', gap: 20 },
-  scoreCircle: { width: 80, height: 80, borderRadius: 40, borderWidth: 3, borderColor: '#8B5CF6', justifyContent: 'center', alignItems: 'baseline', flexDirection: 'row' },
-  scoreValue: { color: '#FFFFFF', fontSize: 28, fontWeight: '900' },
-  scoreMax: { color: '#94A3B8', fontSize: 14 },
+  scoreCircle: { width: 84, height: 84, borderRadius: 42, borderWidth: 4, borderColor: '#8B5CF6', justifyContent: 'center', alignItems: 'center', flexDirection: 'row', backgroundColor: 'rgba(139, 92, 246, 0.1)' },
+  scoreValue: { color: '#FFFFFF', fontSize: 24, fontWeight: '900' },
+  scoreMax: { color: '#94A3B8', fontSize: 12, fontWeight: '600', marginLeft: 1, marginTop: 4 },
   scoreDetails: { flex: 1 },
   scoreLabel: { color: '#FFFFFF', fontSize: 18, fontWeight: '700', marginBottom: 4 },
   scoreTip: { color: '#94A3B8', fontSize: 14, lineHeight: 20 },

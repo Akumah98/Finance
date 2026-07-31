@@ -1,6 +1,7 @@
 
 import { colors } from "@/constants/colors";
 import { api } from "@/lib/api";
+import { localCache } from "@/lib/localCache";
 import { useAuth } from "@/context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -49,11 +50,21 @@ export default function ChatScreen() {
         }
     }, [user]);
 
+    const chatCacheKey = `chat_${user?._id || user?.id || 'guest'}`;
+
     const fetchHistory = async () => {
         try {
+            // Load local cache immediately
+            const cached = await localCache.get<any[]>(chatCacheKey);
+            if (cached && cached.length > 0) {
+                setMessages(cached);
+                setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 50);
+            }
+
             const { data, error } = await api.get('/chat');
             if (data) {
                 setMessages(data);
+                await localCache.set(chatCacheKey, data);
                 setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
             }
         } catch (error) {
@@ -70,6 +81,7 @@ export default function ChatScreen() {
                     try {
                         await api.delete('/chat');
                         setMessages([]);
+                        await localCache.invalidate(chatCacheKey);
                     } catch {
                         Alert.alert('Error', 'Failed to clear chat');
                     } finally {
@@ -84,14 +96,20 @@ export default function ChatScreen() {
         if (!inputText.trim()) return;
 
         const userMsg = { _id: Date.now().toString(), text: inputText, role: 'user', createdAt: new Date() };
-        setMessages(prev => [...prev, userMsg]);
+        const updatedWithUser = [...messages, userMsg];
+        setMessages(updatedWithUser);
+        await localCache.set(chatCacheKey, updatedWithUser);
         setInputText('');
         setIsLoading(true);
 
         try {
             const { data: aiMsg, error } = await api.post('/chat', { text: userMsg.text });
             if (aiMsg) {
-                setMessages(prev => [...prev, aiMsg]);
+                setMessages(prev => {
+                    const finalMsgs = [...prev, aiMsg];
+                    localCache.set(chatCacheKey, finalMsgs);
+                    return finalMsgs;
+                });
             }
         } catch (error) {
             console.error('Failed to send message');
@@ -108,7 +126,7 @@ export default function ChatScreen() {
 
     return (
         <SafeAreaProvider>
-            <SafeAreaView style={styles.container}>
+            <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
                 <LinearGradient
                     colors={[colors.bg, '#0F172A']}
                     style={StyleSheet.absoluteFill}
@@ -156,8 +174,8 @@ export default function ChatScreen() {
 
                 {/* Input Area */}
                 <KeyboardAvoidingView
-                    behavior={Platform.OS === "ios" ? "padding" : "height"}
-                    keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+                    behavior={Platform.OS === "ios" ? "padding" : undefined}
+                    keyboardVerticalOffset={Platform.OS === "ios" ? 10 : 0}
                 >
                     <View style={styles.inputContainer}>
                         <TextInput
@@ -196,7 +214,7 @@ const styles = StyleSheet.create({
     searchDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.success, marginRight: 6 },
     onlineText: { color: colors.textMuted, fontSize: 12 },
 
-    listContent: { padding: 20, paddingBottom: 100 },
+    listContent: { padding: 20, paddingBottom: 16 },
     bubbleContainer: { flexDirection: 'row', marginBottom: 16, width: '100%' },
     rightBubble: { justifyContent: 'flex-end' },
     leftBubble: { justifyContent: 'flex-start' },
@@ -206,8 +224,8 @@ const styles = StyleSheet.create({
     messageText: { color: colors.text, fontSize: 16, lineHeight: 22 },
     timeText: { color: 'rgba(255,255,255,0.5)', fontSize: 10, marginTop: 4, alignSelf: 'flex-end' },
 
-    inputContainer: { flexDirection: 'row', padding: 16, backgroundColor: 'rgba(0,0,0,0.3)', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' },
-    input: { flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 24, paddingHorizontal: 20, paddingVertical: 12, color: colors.text, fontSize: 16, marginRight: 12 },
+    inputContainer: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#0F0F1A', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)', alignItems: 'center' },
+    input: { flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 24, paddingHorizontal: 20, paddingVertical: 10, color: colors.text, fontSize: 16, marginRight: 12 },
     sendButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center' },
     emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40, paddingTop: 80, gap: 12 },
     emptyTitle: { color: colors.text, fontSize: 20, fontWeight: '700', textAlign: 'center' },

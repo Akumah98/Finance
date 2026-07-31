@@ -1,5 +1,6 @@
 import { colors } from "@/constants/colors";
 import { api } from "@/lib/api";
+import { localCache } from "@/lib/localCache";
 import { useAuth } from "@/context/AuthContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -7,7 +8,7 @@ import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { Link, useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, SectionList, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, RefreshControl, ScrollView, SectionList, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 // Mock Data
@@ -57,10 +58,24 @@ const TransactionsScreen = () => {
   const [smartResults, setSmartResults] = useState<any[] | null>(null);
   const [isSearching, setIsSearching] = useState(false);
 
+  const cacheKey = useMemo(() => `transactions_${user?._id || user?.id || 'guest'}`, [user]);
+
   const fetchTransactions = async () => {
     try {
+      // 1. Try local cache first for instant load
+      const cached = await localCache.get<any[]>(cacheKey);
+      if (cached && cached.length > 0) {
+        setTransactions(cached);
+        setIsLoading(false);
+      }
+
+      // 2. Fetch fresh data from backend
       const { data } = await api.get('/transactions');
-      if (data) setTransactions(data.transactions || data);
+      if (data) {
+        const list = data.transactions || data;
+        setTransactions(list);
+        await localCache.set(cacheKey, list, 15 * 60 * 1000); // 15 min TTL
+      }
     } catch (error) {
       console.error('Failed to fetch transactions', error);
     } finally {
@@ -73,7 +88,11 @@ const TransactionsScreen = () => {
     try {
       const { error } = await api.delete(`/transactions/${id}`);
       if (!error) {
-        setTransactions(prev => prev.filter(t => (t._id || t.id) !== id));
+        setTransactions(prev => {
+          const updated = prev.filter(t => (t._id || t.id) !== id);
+          localCache.set(cacheKey, updated, 15 * 60 * 1000);
+          return updated;
+        });
       } else {
         Alert.alert('Error', 'Failed to delete transaction');
       }
@@ -135,6 +154,15 @@ const TransactionsScreen = () => {
       ]
     );
   }, [router, deleteTransaction]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await fetchTransactions();
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -340,7 +368,13 @@ const TransactionsScreen = () => {
 
         {/* Smart Search Results or Normal Section List */}
         {isSmartSearch && smartResults ? (
-          <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
+            }
+          >
             {isSearching ? (
               <View style={styles.emptyState}>
                 <ActivityIndicator color={colors.accent} />
@@ -369,6 +403,9 @@ const TransactionsScreen = () => {
             renderSectionHeader={renderSectionHeader}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
+            }
             ListEmptyComponent={
               <View style={styles.emptyState}>
                 <Text style={styles.emptyText}>No transactions found</Text>

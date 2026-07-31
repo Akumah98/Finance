@@ -1,5 +1,6 @@
 "use client";
 import { api } from "@/lib/api";
+import { localCache } from "@/lib/localCache";
 import { useAuth } from "@/context/AuthContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import { formatAmount as formatInputAmount, parseAmount } from "@/utils/inputValidation";
@@ -12,6 +13,7 @@ import {
     ActivityIndicator,
     Alert,
     Modal,
+    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
@@ -47,17 +49,34 @@ export default function GoalsScreen() {
     const [addAmount, setAddAmount] = useState('');
     const [isUpdating, setIsUpdating] = useState(false);
 
+    const goalsCacheKey = `goals_${user?._id || user?.id || 'guest'}`;
+
     const fetchGoals = async () => {
         if (!user) return;
         try {
+            const cached = await localCache.get<any[]>(goalsCacheKey);
+            if (cached) setGoals(cached);
+
             const { data, error } = await api.get('/savings-goals');
             if (data) {
                 setGoals(data);
+                await localCache.set(goalsCacheKey, data, 60 * 60 * 1000); // 1hr TTL
             }
         } catch (error) {
             console.error('Failed to fetch goals');
         }
     };
+
+    const [refreshing, setRefreshing] = useState(false);
+
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        try {
+            await fetchGoals();
+        } finally {
+            setRefreshing(false);
+        }
+    }, [user]);
 
     useFocusEffect(
         useCallback(() => {
@@ -105,7 +124,13 @@ export default function GoalsScreen() {
                     </Link>
                 </View>
 
-                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+                <ScrollView
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={styles.content}
+                    refreshControl={
+                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
+                    }
+                >
                     {goals.length === 0 ? (
                         <View style={styles.emptyState}>
                             <MaterialCommunityIcons name="piggy-bank-outline" size={64} color={colors.textMuted} />
