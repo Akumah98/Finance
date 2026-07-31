@@ -20,18 +20,35 @@ for (let i = 0; i < geminiKeys.length; i++) {
     providers.push({
         name: `gemini-${i + 1}`,
         chat: async (systemPrompt, history, userMessage) => {
-            const model = genAI.getGenerativeModel({
-                model: 'gemini-2.0-flash',
-                systemInstruction: systemPrompt,
-            });
-            const chat = model.startChat({ history });
-            const result = await chat.sendMessage(userMessage);
-            return result.response.text();
+            try {
+                const model = genAI.getGenerativeModel({
+                    model: 'gemini-1.5-flash',
+                    systemInstruction: systemPrompt,
+                });
+                const chat = model.startChat({ history });
+                const result = await chat.sendMessage(userMessage);
+                return result.response.text();
+            } catch {
+                const model = genAI.getGenerativeModel({
+                    model: 'gemini-2.0-flash',
+                    systemInstruction: systemPrompt,
+                });
+                const chat = model.startChat({ history });
+                const result = await chat.sendMessage(userMessage);
+                return result.response.text();
+            }
         },
         generate: async (prompt) => {
-            const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-            const result = await model.generateContent(prompt);
-            return result.response.text();
+            try {
+                const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+                const result = await model.generateContent(prompt);
+                return result.response.text();
+            } catch (err) {
+                // Fallback to gemini-2.0-flash if 1.5 fails
+                const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+                const result = await model.generateContent(prompt);
+                return result.response.text();
+            }
         },
     });
 }
