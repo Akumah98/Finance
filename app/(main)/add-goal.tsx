@@ -133,10 +133,10 @@ export default function AddGoalScreen() {
                         <View style={styles.inputGroup}>
                             <Text style={styles.label}>Target Amount</Text>
                             <View style={[styles.input, { flexDirection: 'row', alignItems: 'center' }]}>
-                                <Text style={{ color: colors.textMuted, marginRight: 8 }}>$</Text>
+                                <Text style={{ color: colors.textMuted, marginRight: 8 }}>{currency.symbol}</Text>
                                 <TextInput
                                     style={{ flex: 1, color: colors.text, fontSize: 16 }}
-                                    placeholder="0.00"
+                                    placeholder="50,000"
                                     placeholderTextColor={colors.textMuted}
                                     value={target}
                                     onChangeText={(text) => {

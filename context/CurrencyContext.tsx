@@ -37,8 +37,11 @@ export const CurrencyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const loadCurrency = async () => {
         try {
             const savedCode = await AsyncStorage.getItem('user_currency');
-            if (savedCode && (savedCode in CURRENCIES)) {
+            if (savedCode && savedCode !== 'USD' && (savedCode in CURRENCIES)) {
                 setCurrency(CURRENCIES[savedCode as CurrencyCode]);
+            } else {
+                setCurrency(CURRENCIES.XAF);
+                await AsyncStorage.setItem('user_currency', 'XAF');
             }
         } catch (e) {
             console.error('Failed to load currency', e);

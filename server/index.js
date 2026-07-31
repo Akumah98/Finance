@@ -65,7 +65,23 @@ app.use((err, req, res, next) => {
 const { startBillReminderScheduler } = require('./services/notificationService');
 startBillReminderScheduler();
 
+// Health check all AI providers on startup
+const { providers } = require('./services/aiProvider');
+async function checkProviders() {
+    console.log(`\n🔌 AI Providers configured: ${providers.length}`);
+    for (const provider of providers) {
+        try {
+            await provider.generate('Say "ok" and nothing else.');
+            console.log(`  ✅ ${provider.name} — connected`);
+        } catch (err) {
+            console.log(`  ❌ ${provider.name} — failed: ${err.message.slice(0, 80)}`);
+        }
+    }
+    console.log('');
+}
+
 // Start Server
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+    setTimeout(checkProviders, 5000);
 });

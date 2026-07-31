@@ -9,11 +9,9 @@ import React, { useState } from "react";
 import { FlatList, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
-const mockGroupExpenses = [
-    { id: '1', title: 'Dinner at Mario\'s', amount: 120, payer: 'Alex', date: 'Dec 09' },
-    { id: '2', title: 'Uber to Hotel', amount: 45, payer: 'John', date: 'Dec 08' },
-    { id: '3', title: 'Grocery Run', amount: 88, payer: 'Sarah', date: 'Dec 08' },
-];
+import mockData from "@/constants/data.json";
+
+const mockGroupExpenses = mockData.mockGroupExpenses;
 
 export default function GroupDetailScreen() {
     const router = useRouter();
@@ -105,7 +103,7 @@ export default function GroupDetailScreen() {
                                 <Text style={styles.currency}>{currency.symbol}</Text>
                                 <TextInput
                                     style={styles.amountInput}
-                                    placeholder="0.00"
+                                    placeholder="5,000"
                                     placeholderTextColor={colors.textMuted}
                                     keyboardType="numeric"
                                     autoFocus

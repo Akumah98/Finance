@@ -6,7 +6,7 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { Link, useFocusEffect, useRouter } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, SectionList, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
@@ -19,7 +19,7 @@ const FilterTab = ({ label, active, onPress }: { label: string, active: boolean,
   </TouchableOpacity>
 );
 
-const TransactionItem = ({ item, onLongPress }: { item: any, onLongPress: (item: any) => void }) => {
+const TransactionItem = React.memo(({ item, onLongPress }: { item: any, onLongPress: (item: any) => void }) => {
   const { formatAmount } = useCurrency();
   const dateObj = new Date(item.date);
   const formattedDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -39,8 +39,8 @@ const TransactionItem = ({ item, onLongPress }: { item: any, onLongPress: (item:
         </Text>
       </BlurView>
     </TouchableOpacity>
-  )
-};
+  );
+});
 
 const TransactionsScreen = () => {
   const router = useRouter();
@@ -98,7 +98,7 @@ const TransactionsScreen = () => {
     }
   };
 
-  const handleTransactionAction = (item: any) => {
+  const handleTransactionAction = useCallback((item: any) => {
     Alert.alert(
       'Manage Transaction',
       'Choose an action',
@@ -134,7 +134,7 @@ const TransactionsScreen = () => {
         }
       ]
     );
-  };
+  }, [router, deleteTransaction]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -231,6 +231,23 @@ const TransactionsScreen = () => {
     return Object.values(groups).sort((a, b) => b.date.getTime() - a.date.getTime());
   }, [transactions, selectedDate, activeFilter, searchQuery]);
 
+  const renderItem = useCallback(
+    ({ item }: { item: any }) => <TransactionItem item={item} onLongPress={handleTransactionAction} />,
+    [handleTransactionAction]
+  );
+
+  const renderSectionHeader = useCallback(
+    ({ section: { title, totalIncome, totalExpense } }: any) => (
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>{title}</Text>
+        <View style={styles.sectionTotals}>
+          {totalIncome > 0 && <Text style={styles.incomeTotal}>+{formatAmount(totalIncome)}</Text>}
+          {totalExpense > 0 && <Text style={styles.expenseTotal}>-{formatAmount(totalExpense)}</Text>}
+        </View>
+      </View>
+    ),
+    [formatAmount]
+  );
 
   return (
     <SafeAreaProvider>
@@ -348,16 +365,8 @@ const TransactionsScreen = () => {
           <SectionList
             sections={groupedData}
             keyExtractor={item => item._id || item.id}
-            renderItem={({ item }) => <TransactionItem item={item} onLongPress={handleTransactionAction} />}
-            renderSectionHeader={({ section: { title, totalIncome, totalExpense } }) => (
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>{title}</Text>
-                <View style={styles.sectionTotals}>
-                  {totalIncome > 0 && <Text style={styles.incomeTotal}>+{formatAmount(totalIncome)}</Text>}
-                  {totalExpense > 0 && <Text style={styles.expenseTotal}>-{formatAmount(totalExpense)}</Text>}
-                </View>
-              </View>
-            )}
+            renderItem={renderItem}
+            renderSectionHeader={renderSectionHeader}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={
@@ -366,6 +375,9 @@ const TransactionsScreen = () => {
               </View>
             }
             stickySectionHeadersEnabled={false}
+            removeClippedSubviews
+            maxToRenderPerBatch={10}
+            windowSize={10}
           />
         )}
 

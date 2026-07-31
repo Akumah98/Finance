@@ -39,7 +39,6 @@ const colors = {
     textMuted: "#94A3B8",
 };
 
-// Common categories
 const COMMON_CATEGORIES = [
     "Food",
     "Shopping",
@@ -51,6 +50,34 @@ const COMMON_CATEGORIES = [
     "Education",
     "Other"
 ];
+
+interface BudgetItemProps {
+    item: any;
+    formatAmount: (amount: number) => string;
+    onEdit: (item: any) => void;
+    onDelete: (id: string) => void;
+}
+
+const BudgetItem = React.memo(({ item, formatAmount, onEdit, onDelete }: BudgetItemProps) => (
+    <BlurView intensity={70} style={styles.budgetCard}>
+        <View style={styles.budgetIcon}>
+            <Ionicons name="wallet" size={24} color={colors.primary} />
+        </View>
+        <View style={styles.budgetDetails}>
+            <Text style={styles.budgetCategory}>{item.category}</Text>
+            <Text style={styles.budgetPeriod}>Monthly Budget</Text>
+        </View>
+        <Text style={styles.budgetAmount}>{formatAmount(item.amount)}</Text>
+        <View style={styles.budgetActions}>
+            <TouchableOpacity onPress={() => onEdit(item)} style={styles.actionButton}>
+                <Ionicons name="create-outline" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => onDelete(item._id)} style={styles.actionButton}>
+                <Ionicons name="trash-outline" size={20} color={colors.danger} />
+            </TouchableOpacity>
+        </View>
+    </BlurView>
+));
 
 const BudgetsScreen = () => {
     const router = useRouter();
@@ -118,7 +145,7 @@ const BudgetsScreen = () => {
         }
     };
 
-    const handleDeleteBudget = async (id: string) => {
+    const handleDeleteBudget = useCallback(async (id: string) => {
         Alert.alert(
             "Delete Budget",
             "Are you sure you want to delete this budget?",
@@ -140,14 +167,14 @@ const BudgetsScreen = () => {
                 },
             ]
         );
-    };
+    }, []);
 
-    const openEditModal = (budget: any) => {
+    const openEditModal = useCallback((budget: any) => {
         setSelectedBudget(budget);
         setCategory(budget.category);
         setAmount(formatInputAmount(budget.amount.toString()));
         setModalVisible(true);
-    };
+    }, []);
 
     const openAddModal = () => {
         resetForm();
@@ -160,28 +187,16 @@ const BudgetsScreen = () => {
         setAmount("");
     };
 
-    const renderBudgetItem = ({ item }: { item: any }) => (
-        <BlurView intensity={70} style={styles.budgetCard}>
-            <View style={styles.budgetIcon}>
-                <Ionicons name="wallet" size={24} color={colors.primary} />
-            </View>
-            <View style={styles.budgetDetails}>
-                <Text style={styles.budgetCategory}>{item.category}</Text>
-                <Text style={styles.budgetPeriod}>Monthly Budget</Text>
-            </View>
-            <Text style={styles.budgetAmount}>{formatAmount(item.amount)}</Text>
-            <View style={styles.budgetActions}>
-                <TouchableOpacity onPress={() => openEditModal(item)} style={styles.actionButton}>
-                    <Ionicons name="create-outline" size={20} color={colors.textSecondary} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                    onPress={() => handleDeleteBudget(item._id)}
-                    style={styles.actionButton}
-                >
-                    <Ionicons name="trash-outline" size={20} color={colors.danger} />
-                </TouchableOpacity>
-            </View>
-        </BlurView>
+    const renderBudgetItem = useCallback(
+        ({ item }: { item: any }) => (
+            <BudgetItem
+                item={item}
+                formatAmount={formatAmount}
+                onEdit={openEditModal}
+                onDelete={handleDeleteBudget}
+            />
+        ),
+        [formatAmount, openEditModal, handleDeleteBudget]
     );
 
     if (isLoading) {
@@ -217,6 +232,9 @@ const BudgetsScreen = () => {
                     keyExtractor={(item) => item._id}
                     renderItem={renderBudgetItem}
                     contentContainerStyle={styles.listContent}
+                    removeClippedSubviews
+                    maxToRenderPerBatch={10}
+                    windowSize={10}
                     ListEmptyComponent={
                         <View style={styles.emptyState}>
                             <Ionicons name="wallet-outline" size={64} color={colors.textMuted} />

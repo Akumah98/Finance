@@ -243,7 +243,7 @@ export default function GoalsScreen() {
                                 <Text style={styles.currencyPrefix}>{currency.symbol}</Text>
                                 <TextInput
                                     style={styles.amountInput}
-                                    placeholder="0.00"
+                                    placeholder="10,000"
                                     placeholderTextColor={colors.textMuted}
                                     keyboardType="numeric"
                                     value={addAmount}

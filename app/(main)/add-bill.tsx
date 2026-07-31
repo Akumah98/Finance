@@ -225,7 +225,7 @@ export default function AddBillScreen() {
                                 <Text style={{ color: colors.textMuted, marginRight: 8 }}>{currency.symbol}</Text>
                                 <TextInput
                                     style={{ flex: 1, color: colors.text, fontSize: 16 }}
-                                    placeholder="0.00"
+                                    placeholder="5,000"
                                     placeholderTextColor={colors.textMuted}
                                     value={amount}
                                     onChangeText={(text) => {

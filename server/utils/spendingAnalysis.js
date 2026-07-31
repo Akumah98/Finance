@@ -174,10 +174,10 @@ const analyzeSpending = (transactions, budgets = {}) => {
 
         if (netFlow > 0) {
             trend = 'positive';
-            insight = `On track to save $${netFlow.toFixed(0)} this month`;
+            insight = `On track to save ${Math.round(netFlow).toLocaleString()} FCFA this month`;
         } else if (netFlow < 0) {
             trend = 'negative';
-            insight = `Expected deficit of $${Math.abs(netFlow).toFixed(0)}`;
+            insight = `Expected deficit of ${Math.round(Math.abs(netFlow)).toLocaleString()} FCFA`;
         } else {
             insight = 'Breaking even this month';
         }
@@ -268,8 +268,8 @@ const generateRecommendations = (spending, budgets, transactions) => {
         .slice(0, 3);
 
     sortedCategories.forEach(([category, amount]) => {
-        if (amount > 200) {
-            recommendations.push(`Review ${category} expenses → Potential to save $${(amount * 0.2).toFixed(0)}/month`);
+        if (amount > 1000) {
+            recommendations.push(`Review ${category} expenses → Potential to save ${Math.round(amount * 0.2).toLocaleString()} FCFA/month`);
         }
     });
 

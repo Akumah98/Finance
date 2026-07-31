@@ -32,11 +32,12 @@ async function generateAIInsights(financialData) {
         : 'No upcoming bills';
 
     const prompt = `You are an expert personal finance analyst. Analyze this user's financial data and provide insights.
+Note: All monetary amounts in this app are in FCFA (Central African CFA Franc, XAF). When referencing money in insights, recommendations, or tips, always use FCFA (e.g., 5,000 FCFA).
 
 === FINANCIAL SNAPSHOT ===
-Income this month: ${totalIncome.toFixed(2)}
-Expenses this month: ${totalExpenses.toFixed(2)}
-Net savings: ${(totalIncome - totalExpenses).toFixed(2)}
+Income this month: ${totalIncome.toFixed(0)} FCFA
+Expenses this month: ${totalExpenses.toFixed(0)} FCFA
+Net savings: ${(totalIncome - totalExpenses).toFixed(0)} FCFA
 Savings rate: ${savingsRate.toFixed(1)}%
 
 === SPENDING BY CATEGORY ===

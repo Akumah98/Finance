@@ -1,0 +1,7 @@
+{
+  "mockGroupExpenses": [
+    { "id": "1", "title": "Dinner at Mario's", "amount": 12000, "payer": "Alex", "date": "Dec 09" },
+    { "id": "2", "title": "Taxi to Hotel", "amount": 4500, "payer": "John", "date": "Dec 08" },
+    { "id": "3", "title": "Grocery Run", "amount": 8800, "payer": "Sarah", "date": "Dec 08" }
+  ]
+}

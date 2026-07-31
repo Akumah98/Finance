@@ -5,7 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -19,6 +19,20 @@ import {
     View
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+
+const ChatBubble = React.memo(({ item }: { item: any }) => {
+    const isUser = item.role === 'user';
+    return (
+        <View style={[styles.bubbleContainer, isUser ? styles.rightBubble : styles.leftBubble]}>
+            <View style={[styles.bubble, isUser ? styles.userBubble : styles.aiBubble]}>
+                <Text style={styles.messageText}>{item.text}</Text>
+                <Text style={styles.timeText}>
+                    {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </Text>
+            </View>
+        </View>
+    );
+});
 
 export default function ChatScreen() {
     const { user } = useAuth();
@@ -87,19 +101,10 @@ export default function ChatScreen() {
         }
     };
 
-    const renderItem = ({ item }: { item: any }) => {
-        const isUser = item.role === 'user';
-        return (
-            <View style={[styles.bubbleContainer, isUser ? styles.rightBubble : styles.leftBubble]}>
-                <View style={[styles.bubble, isUser ? styles.userBubble : styles.aiBubble]}>
-                    <Text style={styles.messageText}>{item.text}</Text>
-                    <Text style={styles.timeText}>
-                        {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </Text>
-                </View>
-            </View>
-        );
-    };
+    const renderItem = useCallback(
+        ({ item }: { item: any }) => <ChatBubble item={item} />,
+        []
+    );
 
     return (
         <SafeAreaProvider>
@@ -134,6 +139,10 @@ export default function ChatScreen() {
                     keyExtractor={(item) => item._id || item.id || Math.random().toString()}
                     contentContainerStyle={styles.listContent}
                     onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+                    removeClippedSubviews
+                    maxToRenderPerBatch={10}
+                    initialNumToRender={20}
+                    windowSize={10}
                     ListEmptyComponent={
                         <View style={styles.emptyState}>
                             <Ionicons name="chatbubble-ellipses-outline" size={48} color={colors.textMuted} />

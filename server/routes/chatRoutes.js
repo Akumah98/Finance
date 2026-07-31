@@ -12,52 +12,62 @@ const { chatWithFallback } = require('../services/aiProvider');
 
 router.use(protect);
 
-const buildSystemPrompt = (context, ragContext) => {
-    const { income, expenses, savingsRate, topCategories, budgetStatus, overdueBills, goals, plan } = context;
+const buildSystemPrompt = (context, ragContext, ragTransactions = []) => {
+    const { income, expenses, savingsRate, topCategories, budgetStatus, overdueBills, goals, plan, recentTransactions = [] } = context;
 
     let ragSection = '';
     if (ragContext && ragContext.length > 0) {
-        ragSection = `\n\n=== RELEVANT PAST CONVERSATIONS ===
-${ragContext.map(m => `[${m.role}]: ${m.text}`).join('\n')}
-=== END PAST CONVERSATIONS ===
-Use this past context if relevant to the user's current question. It shows previous advice you gave and topics discussed.`;
+        ragSection += `\n\n=== RELEVANT PAST CONVERSATIONS ===\n${ragContext.map(m => `[${m.role}]: ${m.text}`).join('\n')}\n=== END PAST CONVERSATIONS ===\n`;
     }
 
+    let transactionRagSection = '';
+    if (ragTransactions && ragTransactions.length > 0) {
+        transactionRagSection += `\n\n=== RELEVANT TRANSACTIONS (FOUND VIA SEMANTIC SEARCH) ===\n${ragTransactions.map(t => `  - Date: ${new Date(t.date).toLocaleDateString()} | Type: ${t.type} | Category: ${t.category} | Amount: ${t.amount} FCFA | Note: "${t.note || 'No note'}"${t.merchant ? ` | Merchant: "${t.merchant}"` : ''}`).join('\n')}\n=== END RELEVANT TRANSACTIONS ===\n`;
+    }
+
+    const recentTxList = recentTransactions.length > 0
+        ? recentTransactions.map(t => `  - ${new Date(t.date).toLocaleDateString()} [${t.type.toUpperCase()}] ${t.category}: ${t.amount} FCFA — Note: "${t.note || 'No note'}"${t.merchant ? ` (${t.merchant})` : ''}`).join('\n')
+        : '  No recent transactions logged';
+
     return `You are Glitch Assistant, a friendly and knowledgeable personal finance coach inside the Glitch app.
-You have access to the user's real financial data for this month. Use it to give specific, actionable advice.
-Never make up numbers — only reference the data provided below.
+You have access to the user's real financial data, individual transactions, and transaction notes.
+Note: All monetary values in this app are in FCFA (Central African CFA Franc, XAF). When discussing monetary amounts, always format them in FCFA (e.g., 10,000 FCFA).
+Never make up numbers or details — only reference the data provided below.
 Keep responses concise (2–4 sentences max unless the user asks for detail).
 Be encouraging but honest. If something looks bad, say so clearly but constructively.
 
 === USER'S FINANCIAL SNAPSHOT (THIS MONTH) ===
-Total income logged: ${income.toFixed(2)}
-Total expenses: ${expenses.toFixed(2)}
+Total income logged: ${income.toFixed(0)} FCFA
+Total expenses: ${expenses.toFixed(0)} FCFA
 Savings rate: ${savingsRate.toFixed(1)}% (target: 20%)
 
 Allocation plan: ${plan ? `Needs ${plan.needsPct}% / Wants ${plan.wantsPct}% / Future ${plan.futurePct}%` : 'Not set up yet'}
 
 Top spending categories:
 ${topCategories.length > 0
-        ? topCategories.map(c => `  - ${c.category}: ${c.amount.toFixed(2)} ${c.overBudget ? '(OVER BUDGET)' : ''}`).join('\n')
+        ? topCategories.map(c => `  - ${c.category}: ${c.amount.toFixed(2)} FCFA ${c.overBudget ? '(OVER BUDGET)' : ''}`).join('\n')
         : '  No expenses logged yet'}
 
 Budget status:
 ${budgetStatus.length > 0
-        ? budgetStatus.map(b => `  - ${b.category}: spent ${b.spent.toFixed(2)} of ${b.budget.toFixed(2)} (${b.pct.toFixed(0)}%)`).join('\n')
+        ? budgetStatus.map(b => `  - ${b.category}: spent ${b.spent.toFixed(2)} FCFA of ${b.budget.toFixed(2)} FCFA (${b.pct.toFixed(0)}%)`).join('\n')
         : '  No budgets set'}
 
 Overdue unpaid bills:
 ${overdueBills.length > 0
-        ? overdueBills.map(b => `  - ${b.name}: ${b.amount.toFixed(2)} (due ${new Date(b.dueDate).toLocaleDateString()})`).join('\n')
+        ? overdueBills.map(b => `  - ${b.name}: ${b.amount.toFixed(2)} FCFA (due ${new Date(b.dueDate).toLocaleDateString()})`).join('\n')
         : '  None — great!'}
 
 Savings goals:
 ${goals.length > 0
-        ? goals.map(g => `  - ${g.name}: ${g.currentAmount.toFixed(2)} / ${g.targetAmount.toFixed(2)} (${Math.round((g.currentAmount / g.targetAmount) * 100)}%)`).join('\n')
+        ? goals.map(g => `  - ${g.name}: ${g.currentAmount.toFixed(2)} FCFA / ${g.targetAmount.toFixed(2)} FCFA (${Math.round((g.currentAmount / g.targetAmount) * 100)}%)`).join('\n')
         : '  No savings goals set'}
-=== END OF SNAPSHOT ===${ragSection}
 
-Answer the user's question using this data. If they ask something unrelated to personal finance, politely redirect them.`;
+=== RECENT TRANSACTIONS & NOTES ===
+${recentTxList}
+=== END OF SNAPSHOT ===${transactionRagSection}${ragSection}
+
+Answer the user's question using this transaction data and notes. If they ask where they spent money or what a transaction was for, refer directly to the notes and transaction details above. If they ask something unrelated to personal finance, politely redirect them.`;
 };
 
 const getUserContext = async (userId) => {
@@ -65,12 +75,13 @@ const getUserContext = async (userId) => {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
-    const [transactions, bills, goals, budgets, plan] = await Promise.all([
+    const [transactions, bills, goals, budgets, plan, recentTransactions] = await Promise.all([
         Transaction.find({ userId, date: { $gte: startOfMonth, $lte: endOfMonth } }),
         Bill.find({ userId }),
         SavingsGoal.find({ userId }),
         Budget.find({ userId }),
         MoneyPlan.findOne({ userId }),
+        Transaction.find({ userId }).sort({ date: -1 }).limit(25).lean(),
     ]);
 
     const income = transactions
@@ -104,7 +115,7 @@ const getUserContext = async (userId) => {
 
     const overdueBills = bills.filter(b => !b.isPaid && new Date(b.dueDate) < now);
 
-    return { income, expenses, savingsRate, topCategories, budgetStatus, overdueBills, goals, plan };
+    return { income, expenses, savingsRate, topCategories, budgetStatus, overdueBills, goals, plan, recentTransactions };
 };
 
 // RAG: retrieve semantically similar past messages (Atlas Vector Search with fallback)
@@ -168,6 +179,59 @@ async function retrieveRelevantHistory(userId, queryText, excludeIds = []) {
     }
 }
 
+// RAG: retrieve semantically similar transactions via vector search
+async function retrieveRelevantTransactions(userId, queryText) {
+    try {
+        const queryEmbedding = await generateEmbedding(queryText);
+        if (!queryEmbedding) return [];
+
+        // Try Atlas Vector Search first
+        try {
+            const results = await Transaction.aggregate([
+                {
+                    $vectorSearch: {
+                        index: 'transaction_vector_index',
+                        path: 'embedding',
+                        queryVector: queryEmbedding,
+                        numCandidates: 50,
+                        limit: 8,
+                        filter: { userId: userId.toString() }
+                    }
+                },
+                {
+                    $project: { type: 1, amount: 1, category: 1, date: 1, note: 1, merchant: 1, score: { $meta: 'vectorSearchScore' } }
+                }
+            ]);
+
+            if (results.length > 0) {
+                return results.filter(t => t.score > 0.35);
+            }
+        } catch (atlasErr) {
+            // Atlas Vector Search not configured or failed, fall through to in-memory cosine fallback
+        }
+
+        // Fallback: in-memory cosine similarity search
+        const transactions = await Transaction.find({
+            userId,
+            embedding: { $exists: true, $ne: [] }
+        }).sort({ date: -1 }).limit(200).lean();
+
+        if (transactions.length === 0) return [];
+
+        return transactions
+            .map(t => ({
+                ...t,
+                score: cosineSimilarity(queryEmbedding, t.embedding)
+            }))
+            .sort((a, b) => b.score - a.score)
+            .filter(t => t.score > 0.35)
+            .slice(0, 8);
+    } catch (err) {
+        console.error('RAG transaction retrieval error:', err.message);
+        return [];
+    }
+}
+
 function cosineSimilarity(a, b) {
     if (!a || !b || a.length !== b.length) return 0;
     let dot = 0, normA = 0, normB = 0;
@@ -224,9 +288,12 @@ router.post('/', async (req, res) => {
 
         const priorHistory = history.slice(0, -1);
 
-        // 3. RAG: retrieve semantically relevant past messages beyond the 20-message window
+        // 3. RAG: retrieve semantically relevant past messages AND semantically relevant transactions
         const recentIds = history.map(m => m._id);
-        const ragContext = await retrieveRelevantHistory(userId, text, recentIds);
+        const [ragContext, ragTransactions] = await Promise.all([
+            retrieveRelevantHistory(userId, text, recentIds),
+            retrieveRelevantTransactions(userId, text)
+        ]);
 
         // 4. Build Gemini chat history format
         const geminiHistory = priorHistory.map(m => ({
@@ -234,9 +301,9 @@ router.post('/', async (req, res) => {
             parts: [{ text: m.text }],
         }));
 
-        // 5. Gather financial context and build system prompt with RAG context
+        // 5. Gather financial context and build system prompt with RAG context and RAG transactions
         const context = await getUserContext(userId);
-        const systemPrompt = buildSystemPrompt(context, ragContext);
+        const systemPrompt = buildSystemPrompt(context, ragContext, ragTransactions);
 
         // 6. Call AI with fallback across providers
         const { text: responseText } = await chatWithFallback(systemPrompt, geminiHistory, text);
