@@ -124,6 +124,9 @@ export default function MainTabLayout() {
       <Tabs.Screen name="budgets" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="money-plan" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="monthly-review" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+      <Tabs.Screen name="category-review" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+      <Tabs.Screen name="financial-calendar" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+      <Tabs.Screen name="challenges" options={{ href: null, tabBarStyle: { display: 'none' } }} />
 
     </Tabs>
 

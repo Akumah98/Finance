@@ -202,6 +202,18 @@ export default function SettingsScreen() {
                 <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
               </View>
             </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/(main)/category-review' as any)}>
+              <View style={styles.settingItem}>
+                <View style={styles.settingIcon}>
+                  <Ionicons name="color-wand-outline" size={20} color={colors.accent} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.settingLabel}>Category Suggestions</Text>
+                  <Text style={{ color: colors.textMuted, fontSize: 12 }}>Review AI-suggested categories for your transactions</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+              </View>
+            </TouchableOpacity>
           </View>
 
 

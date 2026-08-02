@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const Transaction = require('../models/Transaction');
+const Category = require('../models/Category');
 const { protect } = require('../middleware/authMiddleware');
 const { generateEmbedding, generateEmbeddings, buildTransactionText } = require('../services/embeddingService');
 const insightsCache = require('../services/insightsCache');
+const { categorizeUserTransactions } = require('../services/categorizationJob');
 
 // Apply protection to all routes
 router.use(protect);
@@ -53,6 +55,10 @@ router.get('/', async (req, res) => {
 // Add a new transaction
 router.post('/', async (req, res) => {
     const { type, amount, category, date, note, receiptUri } = req.body;
+
+    if (!note || !note.trim()) {
+        return res.status(400).json({ message: 'A note is required for every transaction' });
+    }
 
     try {
         const newTransaction = new Transaction({
@@ -150,12 +156,15 @@ router.post('/bulk', async (req, res) => {
         return res.status(400).json({ message: 'No transactions provided' });
     }
 
+    const missingNotes = transactions.filter(t => !t.note || !t.note.trim());
+    if (missingNotes.length > 0) {
+        return res.status(400).json({ message: 'All transactions must have a note' });
+    }
+
     try {
-        // Ensure security by forcing userId from token
         const transactionsToSave = transactions.map(t => ({
             ...t,
             userId: req.user.id,
-            // Ensure essential fields are present if not handled by schema defaults (though schema handles most)
             date: t.date || new Date(),
             type: t.type || 'expense',
             amount: t.amount,
@@ -288,6 +297,125 @@ router.post('/suggest-category', async (req, res) => {
     }
 });
 
+// GET /api/transactions/month-comparison — compare current vs previous month spending
+router.get('/month-comparison', async (req, res) => {
+    try {
+        const now = new Date();
+        const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+
+        const [thisMonth, lastMonth] = await Promise.all([
+            Transaction.find({ userId: req.user.id, type: 'expense', date: { $gte: startOfThisMonth } }).lean(),
+            Transaction.find({ userId: req.user.id, type: 'expense', date: { $gte: startOfLastMonth, $lte: endOfLastMonth } }).lean()
+        ]);
+
+        const sumByCategory = (txs) => {
+            const map = {};
+            for (const tx of txs) {
+                map[tx.category] = (map[tx.category] || 0) + tx.amount;
+            }
+            return map;
+        };
+
+        const thisMonthCats = sumByCategory(thisMonth);
+        const lastMonthCats = sumByCategory(lastMonth);
+
+        const allCategories = [...new Set([...Object.keys(thisMonthCats), ...Object.keys(lastMonthCats)])];
+
+        const comparison = allCategories.map(category => {
+            const current = thisMonthCats[category] || 0;
+            const previous = lastMonthCats[category] || 0;
+            const change = previous > 0 ? Math.round(((current - previous) / previous) * 100) : (current > 0 ? 100 : 0);
+            return { category, current: Math.round(current), previous: Math.round(previous), changePercent: change };
+        }).sort((a, b) => Math.abs(b.changePercent) - Math.abs(a.changePercent));
+
+        const totalThis = thisMonth.reduce((s, t) => s + t.amount, 0);
+        const totalLast = lastMonth.reduce((s, t) => s + t.amount, 0);
+        const totalChange = totalLast > 0 ? Math.round(((totalThis - totalLast) / totalLast) * 100) : 0;
+
+        res.json({
+            comparison,
+            totals: { current: Math.round(totalThis), previous: Math.round(totalLast), changePercent: totalChange }
+        });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// GET /api/transactions/subscriptions — detect recurring transaction patterns
+router.get('/subscriptions', async (req, res) => {
+    try {
+        const threeMonthsAgo = new Date();
+        threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
+        const transactions = await Transaction.find({
+            userId: req.user.id,
+            type: 'expense',
+            date: { $gte: threeMonthsAgo }
+        }).sort({ date: -1 }).lean();
+
+        // Group by normalized note (lowercase, trimmed)
+        const groups = {};
+        for (const tx of transactions) {
+            const key = (tx.note || '').toLowerCase().trim();
+            if (!key || key.length < 3) continue;
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(tx);
+        }
+
+        const subscriptions = [];
+
+        for (const [note, txs] of Object.entries(groups)) {
+            if (txs.length < 2) continue;
+
+            // Check if amounts are similar (within 20% of each other)
+            const amounts = txs.map(t => t.amount);
+            const avgAmount = amounts.reduce((s, a) => s + a, 0) / amounts.length;
+            const allSimilar = amounts.every(a => Math.abs(a - avgAmount) / avgAmount < 0.2);
+            if (!allSimilar) continue;
+
+            // Check frequency: are dates roughly evenly spaced?
+            const dates = txs.map(t => new Date(t.date).getTime()).sort((a, b) => a - b);
+            if (dates.length < 2) continue;
+
+            const gaps = [];
+            for (let i = 1; i < dates.length; i++) {
+                gaps.push((dates[i] - dates[i - 1]) / (1000 * 60 * 60 * 24));
+            }
+            const avgGap = gaps.reduce((s, g) => s + g, 0) / gaps.length;
+
+            // Detect frequency
+            let frequency = null;
+            if (avgGap >= 25 && avgGap <= 35) frequency = 'monthly';
+            else if (avgGap >= 6 && avgGap <= 8) frequency = 'weekly';
+            else if (avgGap >= 13 && avgGap <= 16) frequency = 'biweekly';
+            else continue; // not a recognizable pattern
+
+            subscriptions.push({
+                note: txs[0].note,
+                category: txs[0].category,
+                avgAmount: Math.round(avgAmount),
+                frequency,
+                occurrences: txs.length,
+                lastDate: txs[0].date,
+                monthlyEstimate: frequency === 'weekly' ? Math.round(avgAmount * 4.3)
+                    : frequency === 'biweekly' ? Math.round(avgAmount * 2)
+                    : Math.round(avgAmount)
+            });
+        }
+
+        // Sort by monthly cost descending
+        subscriptions.sort((a, b) => b.monthlyEstimate - a.monthlyEstimate);
+
+        const totalMonthly = subscriptions.reduce((s, sub) => s + sub.monthlyEstimate, 0);
+
+        res.json({ subscriptions, totalMonthly });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
 function cosineSimilarity(a, b) {
     if (!a || !b || a.length !== b.length) return 0;
     let dot = 0, normA = 0, normB = 0;
@@ -298,5 +426,132 @@ function cosineSimilarity(a, b) {
     }
     return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }
+
+// GET /api/transactions/suggestions — get pending AI category suggestions
+router.get('/suggestions', async (req, res) => {
+    try {
+        const suggestions = await Transaction.find({
+            userId: req.user.id,
+            suggestedCategory: { $ne: null }
+        })
+            .select('_id type amount note category suggestedCategory suggestedNewCategory date')
+            .sort({ date: -1 });
+
+        res.json(suggestions);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// POST /api/transactions/suggestions/accept — accept suggestions
+router.post('/suggestions/accept', async (req, res) => {
+    const { transactionIds, useNew, all } = req.body;
+
+    try {
+        let filter = { userId: req.user.id, suggestedCategory: { $ne: null } };
+        if (!all && transactionIds) {
+            filter._id = { $in: transactionIds };
+        }
+
+        const transactions = await Transaction.find(filter).lean();
+        if (transactions.length === 0) {
+            return res.json({ updated: 0, newCategories: [] });
+        }
+
+        const userCategories = await Category.find({ userId: req.user.id });
+        const existingNames = new Set(userCategories.map(c => c.name.toLowerCase()));
+        const newCategoryNames = [];
+        const bulkOps = [];
+
+        for (const tx of transactions) {
+            const chosenCategory = useNew && tx.suggestedNewCategory
+                ? tx.suggestedNewCategory
+                : tx.suggestedCategory;
+
+            if (!chosenCategory || chosenCategory === 'Other') continue;
+
+            if (!existingNames.has(chosenCategory.toLowerCase())) {
+                existingNames.add(chosenCategory.toLowerCase());
+                newCategoryNames.push({ name: chosenCategory, type: tx.type });
+            }
+
+            bulkOps.push({
+                updateOne: {
+                    filter: { _id: tx._id },
+                    update: {
+                        $set: { category: chosenCategory, suggestedCategory: null, suggestedNewCategory: null }
+                    }
+                }
+            });
+        }
+
+        // Create new categories
+        if (newCategoryNames.length > 0) {
+            const newCats = newCategoryNames.map(c => ({
+                userId: req.user.id,
+                name: c.name,
+                icon: 'shape',
+                color: c.type === 'income' ? '#10B981' : '#3B82F6',
+                type: c.type
+            }));
+            await Category.insertMany(newCats);
+        }
+
+        if (bulkOps.length > 0) {
+            await Transaction.bulkWrite(bulkOps);
+        }
+
+        insightsCache.invalidate(req.user.id);
+
+        res.json({
+            updated: bulkOps.length,
+            newCategories: newCategoryNames.map(c => c.name)
+        });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// POST /api/transactions/suggestions/reject — reject suggestions
+router.post('/suggestions/reject', async (req, res) => {
+    const { transactionIds, all } = req.body;
+
+    try {
+        let filter = { userId: req.user.id, suggestedCategory: { $ne: null } };
+        if (!all && transactionIds) {
+            filter._id = { $in: transactionIds };
+        }
+
+        await Transaction.updateMany(filter, {
+            $set: { suggestedCategory: null, suggestedNewCategory: null }
+        });
+
+        res.json({ message: 'Suggestions rejected' });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// POST /api/transactions/batch-categorize — manual trigger for categorization
+const batchCategorizeTimestamps = new Map();
+const BATCH_COOLDOWN_MS = 10 * 60 * 1000;
+
+router.post('/batch-categorize', async (req, res) => {
+    const userId = req.user.id;
+    const lastRun = batchCategorizeTimestamps.get(userId);
+
+    if (lastRun && Date.now() - lastRun < BATCH_COOLDOWN_MS) {
+        const waitMin = Math.ceil((BATCH_COOLDOWN_MS - (Date.now() - lastRun)) / 60000);
+        return res.status(429).json({ message: `Please wait ${waitMin} minute(s) before trying again.` });
+    }
+
+    try {
+        batchCategorizeTimestamps.set(userId, Date.now());
+        const result = await categorizeUserTransactions(userId);
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
 
 module.exports = router;

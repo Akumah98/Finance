@@ -10,6 +10,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
+    ActivityIndicator,
     Alert,
     KeyboardAvoidingView,
     Platform,
@@ -43,6 +44,9 @@ export default function AddTransactionScreen() {
 
     const [categories, setCategories] = useState<any[]>([]);
     const [suggestedCategory, setSuggestedCategory] = useState<string | null>(null);
+
+    // Voice Input State
+    const [isParsingVoice, setIsParsingVoice] = useState(false);
 
     // Bulk Mode State
     const [mode, setMode] = useState<'single' | 'bulk'>('single');
@@ -91,9 +95,53 @@ export default function AddTransactionScreen() {
         }
     }, [categories, initialCategory, initialType]);
 
+    const handleVoiceInput = () => {
+        if (Platform.OS === 'ios') {
+            Alert.prompt(
+                'Voice Input',
+                'Describe your transaction (e.g. "I spent 2000 on lunch at campus")',
+                async (transcript) => {
+                    if (!transcript || !transcript.trim()) return;
+                    await parseVoiceTranscript(transcript);
+                },
+                'plain-text'
+            );
+        } else {
+            // On Android, parse whatever is currently in the note field
+            if (note.trim().length >= 3) {
+                parseVoiceTranscript(note);
+            } else {
+                Alert.alert('Voice Input', 'Type or dictate your transaction in the note field (e.g. "spent 2000 on lunch"), then tap the mic button to auto-fill.');
+            }
+        }
+    };
+
+    const parseVoiceTranscript = async (transcript: string) => {
+        setIsParsingVoice(true);
+        try {
+            const { data } = await api.post('/voice/parse', { transcript });
+            if (data) {
+                if (data.type) setType(data.type);
+                if (data.amount) setAmount(formatInputAmount(String(data.amount)));
+                if (data.note) setNote(data.note);
+                if (data.date) setDate(new Date(data.date));
+
+                // Try to match category
+                if (data.category && categories.length > 0) {
+                    const cat = categories.find((c: any) => c.name === data.category && c.type === data.type);
+                    if (cat) setSelectedCategory(cat._id || cat.id);
+                }
+            }
+        } catch {
+            Alert.alert('Error', 'Could not parse your input. Try again with clearer phrasing.');
+        } finally {
+            setIsParsingVoice(false);
+        }
+    };
+
     const handleSave = async () => {
-        if (!amount || !selectedCategory) {
-            Alert.alert('Missing Fields', 'Please enter an amount and select a category.');
+        if (!amount || !selectedCategory || !note.trim()) {
+            Alert.alert('Missing Fields', 'Please enter an amount, select a category, and add a note.');
             return;
         }
 
@@ -222,8 +270,8 @@ export default function AddTransactionScreen() {
     };
 
     const addToBatch = () => {
-        if (!amount || !selectedCategory) {
-            Alert.alert('Missing Fields', 'Please enter an amount and select a category.');
+        if (!amount || !selectedCategory || !note.trim()) {
+            Alert.alert('Missing Fields', 'Please enter an amount, select a category, and add a note.');
             return;
         }
 
@@ -487,7 +535,7 @@ export default function AddTransactionScreen() {
                             <View style={styles.inputRow}>
                                 <Ionicons name="create-outline" size={20} color={colors.textMuted} />
                                 <TextInput
-                                    placeholder="Add a note..."
+                                    placeholder="Add a note (required)"
                                     placeholderTextColor={colors.textMuted}
                                     style={styles.textInput}
                                     value={note}
@@ -507,6 +555,17 @@ export default function AddTransactionScreen() {
                                         }
                                     }}
                                 />
+                                <TouchableOpacity
+                                    onPress={handleVoiceInput}
+                                    style={[styles.voiceBtn, isParsingVoice && styles.voiceBtnActive]}
+                                    disabled={isParsingVoice}
+                                >
+                                    {isParsingVoice ? (
+                                        <ActivityIndicator size="small" color={colors.primary} />
+                                    ) : (
+                                        <Ionicons name="mic" size={20} color={colors.primary} />
+                                    )}
+                                </TouchableOpacity>
                             </View>
                             {suggestedCategory && selectedCategory && (
                                 <Text style={{ color: colors.accent, fontSize: 12, marginLeft: 28, marginTop: 4 }}>
@@ -610,8 +669,8 @@ const styles = StyleSheet.create({
     },
     inputText: { color: colors.text, fontSize: 16 },
     textInput: { flex: 1, color: colors.text, fontSize: 16 },
-
-
+    voiceBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(139, 92, 246, 0.15)', justifyContent: 'center', alignItems: 'center' },
+    voiceBtnActive: { backgroundColor: 'rgba(239, 68, 68, 0.2)' },
 
     keypad: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 20, marginBottom: 20 },
     key: { width: '33.33%', height: 60, justifyContent: 'center', alignItems: 'center' },

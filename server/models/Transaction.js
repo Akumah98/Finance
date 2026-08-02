@@ -24,15 +24,27 @@ const TransactionSchema = new mongoose.Schema({
         default: Date.now
     },
     note: {
-        type: String
+        type: String,
+        required: true
     },
     receiptUri: {
         type: String
     },
-    // Vector embedding for semantic search (768-dim from text-embedding-004)
     embedding: {
         type: [Number],
         default: undefined
+    },
+    suggestedCategory: {
+        type: String,
+        default: null
+    },
+    suggestedNewCategory: {
+        type: String,
+        default: null
+    },
+    categorizationAttempted: {
+        type: Boolean,
+        default: false
     },
     createdAt: {
         type: Date,

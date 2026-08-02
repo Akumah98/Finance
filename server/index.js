@@ -45,6 +45,9 @@ app.use('/api/health-score', require('./routes/healthScoreRoutes'));
 app.use('/api/monthly-review', require('./routes/monthlyReviewRoutes'));
 app.use('/api/embeddings', require('./routes/embedRoutes'));
 app.use('/api/export', require('./routes/exportRoutes'));
+app.use('/api/calendar', require('./routes/calendarRoutes'));
+app.use('/api/challenges', require('./routes/challengeRoutes'));
+app.use('/api/voice', require('./routes/voiceRoutes'));
 
 // Routes
 app.get('/', (req, res) => {
@@ -64,6 +67,10 @@ app.use((err, req, res, next) => {
 // Start bill reminder scheduler
 const { startBillReminderScheduler } = require('./services/notificationService');
 startBillReminderScheduler();
+
+// Start AI categorization scheduler
+const { startCategorizationScheduler } = require('./services/categorizationJob');
+startCategorizationScheduler();
 
 // Health check all AI providers on startup
 const { providers } = require('./services/aiProvider');

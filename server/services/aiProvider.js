@@ -105,7 +105,7 @@ function makeGroqProvider(apiKey, index) {
                 body: JSON.stringify({
                     model: 'llama-3.3-70b-versatile',
                     messages: [{ role: 'user', content: prompt }],
-                    max_tokens: 1024,
+                    max_tokens: 4096,
                     temperature: 0.7,
                 }),
             });

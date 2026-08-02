@@ -412,6 +412,8 @@ export default function DashboardScreen() {
     { label: "My Goals", icon: "ribbon", color: "#8B5CF6", link: "/(main)/goals" },
     { label: "Add Budget", icon: "wallet", color: "#8B5CF6", link: "/(main)/budgets" },
     { label: "Groups", icon: "people", color: "#8B5CF6", link: "/(main)/groups" },
+    { label: "Calendar", icon: "calendar-outline", color: "#3B82F6", link: "/(main)/financial-calendar" },
+    { label: "Challenges", icon: "trophy-outline", color: "#F59E0B", link: "/(main)/challenges" },
     { label: "Export", icon: "download", color: "#8B5CF6", link: "/(main)/settings" },
   ];
 

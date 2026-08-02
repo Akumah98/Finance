@@ -88,4 +88,45 @@ router.delete('/:id', async (req, res) => {
     }
 });
 
+// GET /api/savings-goals/autopilot — calculate daily/weekly targets for all goals
+router.get('/autopilot', async (req, res) => {
+    try {
+        const goals = await SavingsGoal.find({ userId: req.user._id }).lean();
+        const now = new Date();
+
+        const autopilot = goals
+            .filter(g => g.deadline && g.currentAmount < g.targetAmount)
+            .map(g => {
+                const remaining = g.targetAmount - g.currentAmount;
+                const daysLeft = Math.max(1, Math.ceil((new Date(g.deadline) - now) / (1000 * 60 * 60 * 24)));
+                const weeksLeft = Math.max(1, Math.ceil(daysLeft / 7));
+                const dailyTarget = Math.ceil(remaining / daysLeft);
+                const weeklyTarget = Math.ceil(remaining / weeksLeft);
+                const progress = Math.round((g.currentAmount / g.targetAmount) * 100);
+                const onTrack = dailyTarget <= (g.targetAmount / 90); // reasonable if daily is ≤ total/90 days
+
+                return {
+                    _id: g._id,
+                    name: g.name,
+                    targetAmount: g.targetAmount,
+                    currentAmount: g.currentAmount,
+                    remaining,
+                    deadline: g.deadline,
+                    daysLeft,
+                    dailyTarget,
+                    weeklyTarget,
+                    progress,
+                    onTrack,
+                    icon: g.icon,
+                    color: g.color
+                };
+            })
+            .sort((a, b) => a.daysLeft - b.daysLeft);
+
+        res.json(autopilot);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
 module.exports = router;
