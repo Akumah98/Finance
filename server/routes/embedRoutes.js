@@ -10,7 +10,8 @@ router.use(protect);
 // POST /api/embeddings/backfill — generate embeddings for existing data
 router.post('/backfill', async (req, res) => {
     const userId = req.user.id;
-    const { type = 'transactions', batchSize = 20 } = req.body;
+    const { type = 'transactions', batchSize: rawBatchSize = 20 } = req.body;
+    const batchSize = Math.min(Math.max(1, rawBatchSize), 50);
 
     try {
         let processed = 0;

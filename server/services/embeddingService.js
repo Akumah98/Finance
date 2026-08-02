@@ -25,16 +25,24 @@ async function generateEmbeddings(texts) {
 
     try {
         const model = genAI.getGenerativeModel({ model: EMBEDDING_MODEL });
-        const requests = texts
-            .filter(t => t && t.trim().length > 0)
-            .map(text => ({
-                content: { parts: [{ text: text.trim() }] },
-            }));
+        const validIndices = [];
+        const requests = [];
+
+        texts.forEach((t, i) => {
+            if (t && t.trim().length > 0) {
+                validIndices.push(i);
+                requests.push({ content: { parts: [{ text: t.trim() }] } });
+            }
+        });
 
         if (requests.length === 0) return texts.map(() => null);
 
         const result = await model.batchEmbedContents({ requests });
-        return result.embeddings.map(e => e.values);
+        const output = texts.map(() => null);
+        result.embeddings.forEach((e, j) => {
+            output[validIndices[j]] = e.values;
+        });
+        return output;
     } catch (err) {
         console.error('Batch embedding failed:', err.message);
         return texts.map(() => null);
