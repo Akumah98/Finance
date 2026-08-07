@@ -1,0 +1,45 @@
+{
+  "buckets": [
+    {
+      "key": "needs",
+      "label": "Needs",
+      "subtitle": "Rent, food, transport, utilities",
+      "icon": "home",
+      "gradientColors": ["#3B82F620", "#2563EB20"],
+      "barColor": "#3B82F6",
+      "pctKey": "needsPct"
+    },
+    {
+      "key": "wants",
+      "label": "Wants",
+      "subtitle": "Dining, entertainment, shopping",
+      "icon": "sparkles",
+      "gradientColors": ["#8B5CF620", "#6D28D920"],
+      "barColor": "#8B5CF6",
+      "pctKey": "wantsPct"
+    },
+    {
+      "key": "future",
+      "label": "Future",
+      "subtitle": "Savings, investments, debt",
+      "icon": "trending-up",
+      "gradientColors": ["#10B98120", "#059B6820"],
+      "barColor": "#10B981",
+      "pctKey": "futurePct"
+    }
+  ],
+  "colors": {
+    "bg": "#0F0F1A",
+    "glass": "rgba(255, 255, 255, 0.08)",
+    "border": "rgba(120, 120, 255, 0.2)",
+    "primary": "#6D28D9",
+    "gradient1": "#8B5CF6",
+    "gradient2": "#3B82F6",
+    "success": "#10B981",
+    "danger": "#EF4444",
+    "warning": "#F59E0B",
+    "text": "#F8FAFC",
+    "textSecondary": "#CBD5E1",
+    "textMuted": "#94A3B8"
+  }
+}
