@@ -33,20 +33,18 @@ router.get('/', async (req, res) => {
         // ── Income & Expenses ────────────────────────────────────────────
         const isSavingsCat = (cat) => typeof cat === 'string' && cat.trim().toLowerCase() === 'savings';
 
-        const totalIncome = transactions
-            .filter(t => t.type === 'income')
+        const incomeTxns = transactions.filter(t => t.type === 'income');
+        const expenseTxns = transactions.filter(t => t.type === 'expense');
+
+        const totalIncome = incomeTxns.reduce((s, t) => s + t.amount, 0);
+        const totalExpenses = expenseTxns.reduce((s, t) => s + t.amount, 0);
+
+        const savingsExpenses = expenseTxns
+            .filter(t => isSavingsCat(t.category))
             .reduce((s, t) => s + t.amount, 0);
 
-        const totalExpenses = transactions
-            .filter(t => t.type === 'expense')
-            .reduce((s, t) => s + t.amount, 0);
-
-        const savingsExpenses = transactions
-            .filter(t => t.type === 'expense' && isSavingsCat(t.category))
-            .reduce((s, t) => s + t.amount, 0);
-
-        const savingsIncomes = transactions
-            .filter(t => t.type === 'income' && isSavingsCat(t.category))
+        const savingsIncomes = incomeTxns
+            .filter(t => isSavingsCat(t.category))
             .reduce((s, t) => s + t.amount, 0);
 
         const savedAmount = Math.max(savingsExpenses - savingsIncomes, 0);
