@@ -144,12 +144,21 @@ function interleaveProviders() {
 const orderedProviders = interleaveProviders();
 
 async function chatWithFallback(systemPrompt, history, userMessage) {
-    for (const provider of orderedProviders) {
+    for (let i = 0; i < orderedProviders.length; i++) {
+        const provider = orderedProviders[i];
         try {
             const result = await provider.chat(systemPrompt, history, userMessage);
+            if (i > 0) {
+                console.log(`⚠️ Fallback Succeeded: AI Chat job completed using ${provider.name} (after earlier provider failed)`);
+            } else {
+                console.log(`✅ AI Chat completed using ${provider.name}`);
+            }
             return { text: result, provider: provider.name };
         } catch (err) {
-            console.error(`${provider.name} chat failed:`, err.message);
+            console.error(`❌ ${provider.name} chat failed: ${err.message.slice(0, 120)}`);
+            if (i < orderedProviders.length - 1) {
+                console.log(`🔄 Falling back to next AI provider (${orderedProviders[i + 1].name})...`);
+            }
             continue;
         }
     }
@@ -157,12 +166,21 @@ async function chatWithFallback(systemPrompt, history, userMessage) {
 }
 
 async function generateWithFallback(prompt) {
-    for (const provider of orderedProviders) {
+    for (let i = 0; i < orderedProviders.length; i++) {
+        const provider = orderedProviders[i];
         try {
             const result = await provider.generate(prompt);
+            if (i > 0) {
+                console.log(`⚠️ Fallback Succeeded: AI Generation job completed using ${provider.name} (after earlier provider failed)`);
+            } else {
+                console.log(`✅ AI Generation completed using ${provider.name}`);
+            }
             return { text: result, provider: provider.name };
         } catch (err) {
-            console.error(`${provider.name} generate failed:`, err.message);
+            console.error(`❌ ${provider.name} generate failed: ${err.message.slice(0, 120)}`);
+            if (i < orderedProviders.length - 1) {
+                console.log(`🔄 Falling back to next AI provider (${orderedProviders[i + 1].name})...`);
+            }
             continue;
         }
     }
