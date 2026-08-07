@@ -28,8 +28,10 @@ router.get('/', async (req, res) => {
             date: { $gte: startOfMonth, $lte: endOfMonth }
         });
 
+        const isSavingsCat = (cat) => typeof cat === 'string' && cat.trim().toLowerCase() === 'savings';
+
         const regularIncome = transactions
-            .filter(t => t.type === 'income' && t.category !== 'Savings')
+            .filter(t => t.type === 'income' && !isSavingsCat(t.category))
             .reduce((sum, t) => sum + t.amount, 0);
 
         // Allocated amounts based on real regular income
@@ -48,12 +50,12 @@ router.get('/', async (req, res) => {
             .filter(t => plan.wantsCategories.includes(t.category))
             .reduce((sum, t) => sum + t.amount, 0);
 
-        // Future = Net Savings (transactions categorized under 'Savings')
-        const savingsExpenses = expenses
-            .filter(t => t.category === 'Savings')
+        // Future = Net Savings: (Expense Savings transferred into savings) - (Income Savings withdrawn from savings)
+        const savingsExpenses = transactions
+            .filter(t => t.type === 'expense' && isSavingsCat(t.category))
             .reduce((sum, t) => sum + t.amount, 0);
         const savingsIncomes = transactions
-            .filter(t => t.type === 'income' && t.category === 'Savings')
+            .filter(t => t.type === 'income' && isSavingsCat(t.category))
             .reduce((sum, t) => sum + t.amount, 0);
         const futureSaved = Math.max(savingsExpenses - savingsIncomes, 0);
 

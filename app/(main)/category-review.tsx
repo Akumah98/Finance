@@ -148,6 +148,8 @@ export default function CategoryReviewScreen() {
 
     const renderItem = useCallback(({ item }: { item: Suggestion }) => {
         const isProcessing = processing === item._id;
+        const isMatched = item.category === item.suggestedCategory;
+
         return (
             <View style={styles.card}>
                 <View style={styles.cardHeader}>
@@ -179,14 +181,16 @@ export default function CategoryReviewScreen() {
                     </View>
                     <Ionicons name="arrow-forward" size={16} color={colors.textMuted} />
                     <View style={[styles.categoryBadge, styles.suggestedBadge]}>
-                        <Text style={styles.categoryLabel}>Suggested</Text>
-                        <Text style={styles.suggestedName}>{item.suggestedCategory}</Text>
+                        <Text style={styles.categoryLabel}>{isMatched ? 'AI Confirms' : 'Suggested'}</Text>
+                        <Text style={[styles.suggestedName, isMatched && { color: colors.success }]}>
+                            {item.suggestedCategory}
+                        </Text>
                     </View>
                 </View>
 
                 <View style={styles.actionRow}>
                     <TouchableOpacity
-                        style={styles.acceptBtn}
+                        style={[styles.acceptBtn, isMatched && { backgroundColor: colors.success }]}
                         onPress={() => handleAccept(item._id, false)}
                         disabled={!!processing}
                     >
@@ -195,7 +199,9 @@ export default function CategoryReviewScreen() {
                         ) : (
                             <>
                                 <Ionicons name="checkmark" size={16} color="white" />
-                                <Text style={styles.acceptBtnText}>Use {item.suggestedCategory}</Text>
+                                <Text style={styles.acceptBtnText}>
+                                    {isMatched ? `Confirm ${item.suggestedCategory}` : `Use ${item.suggestedCategory}`}
+                                </Text>
                             </>
                         )}
                     </TouchableOpacity>

@@ -15,6 +15,8 @@ async function calculateHealthScore(userId) {
         SavingsGoal.find({ userId }),
     ]);
 
+    const isSavingsCat = (cat) => typeof cat === 'string' && cat.trim().toLowerCase() === 'savings';
+
     const monthlyIncome = thisMonthTxns
         .filter(t => t.type === 'income')
         .reduce((s, t) => s + t.amount, 0);
@@ -23,16 +25,16 @@ async function calculateHealthScore(userId) {
         .filter(t => t.type === 'expense')
         .reduce((s, t) => s + t.amount, 0);
 
-    const savingsExpense = thisMonthTxns
-        .filter(t => t.type === 'expense' && t.category === 'Savings')
+    const savingsExpenses = thisMonthTxns
+        .filter(t => t.type === 'expense' && isSavingsCat(t.category))
         .reduce((s, t) => s + t.amount, 0);
 
-    const savingsIncome = thisMonthTxns
-        .filter(t => t.type === 'income' && t.category === 'Savings')
+    const savingsIncomes = thisMonthTxns
+        .filter(t => t.type === 'income' && isSavingsCat(t.category))
         .reduce((s, t) => s + t.amount, 0);
 
-    const savedAmount = savingsExpense - savingsIncome;
-    const regularIncome = Math.max(monthlyIncome - savingsIncome, 0);
+    const savedAmount = Math.max(savingsExpenses - savingsIncomes, 0);
+    const regularIncome = Math.max(monthlyIncome - savingsIncomes, 0);
 
     // Signal 1: Emergency Fund (25 pts)
     let emergencyScore = 0;

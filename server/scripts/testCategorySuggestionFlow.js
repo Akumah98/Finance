@@ -66,16 +66,16 @@ async function testCategorySuggestionFlow() {
         }
     });
 
-    // Test 2: Verify GET /suggestions query includes $expr to exclude same-category noise
-    runTest('Bug #3 Fix: GET /suggestions excludes entries where suggestedCategory equals current category', () => {
+    // Test 2: Verify GET /suggestions query includes ALL transactions with suggestedCategory
+    runTest('Universal Suggestions: GET /suggestions returns all transactions with AI suggestions', () => {
         const queryFilter = {
             userId: 'user123',
-            suggestedCategory: { $exists: true, $ne: null },
-            $expr: { $ne: ['$suggestedCategory', '$category'] }
+            suggestedCategory: { $exists: true, $ne: null }
         };
 
-        assert.ok(queryFilter.$expr, '$expr filter must exist');
-        assert.deepStrictEqual(queryFilter.$expr, { $ne: ['$suggestedCategory', '$category'] });
+        assert.strictEqual(queryFilter.userId, 'user123');
+        assert.deepStrictEqual(queryFilter.suggestedCategory, { $exists: true, $ne: null });
+        assert.strictEqual(queryFilter.$expr, undefined, '$expr filter should be removed to allow matching category suggestions');
     });
 
     // Test 3: Verify fire-and-forget save condition accepts suggestions

@@ -62,6 +62,8 @@ router.get('/', async (req, res) => {
             }
         });
 
+        const isSavingsCat = (cat) => typeof cat === 'string' && cat.trim().toLowerCase() === 'savings';
+
         const totalIncome = thisMonthTransactions
             .filter(t => t.type === 'income')
             .reduce((s, t) => s + t.amount, 0);
@@ -71,17 +73,17 @@ router.get('/', async (req, res) => {
             .reduce((s, t) => s + t.amount, 0);
 
         const savingsExpense = thisMonthTransactions
-            .filter(t => t.type === 'expense' && t.category === 'Savings')
+            .filter(t => t.type === 'expense' && isSavingsCat(t.category))
             .reduce((s, t) => s + t.amount, 0);
 
         const savingsIncome = thisMonthTransactions
-            .filter(t => t.type === 'income' && t.category === 'Savings')
+            .filter(t => t.type === 'income' && isSavingsCat(t.category))
             .reduce((s, t) => s + t.amount, 0);
 
-        const savedAmount = savingsExpense - savingsIncome;
+        const savedAmount = Math.max(savingsExpense - savingsIncome, 0);
         const regularIncome = Math.max(totalIncome - savingsIncome, 0);
 
-        const savingsRate = regularIncome > 0 ? (Math.max(savedAmount, 0) / regularIncome) * 100 : 0;
+        const savingsRate = regularIncome > 0 ? (savedAmount / regularIncome) * 100 : 0;
 
         // Generate rule-based insights as fallback
         const ruleBasedInsights = analyzeSpending(transactions, budgets);

@@ -67,7 +67,31 @@ function testFinancialCalculations() {
         totalPassed++;
     })();
 
-    console.log(`\n📊 Summary: ${totalPassed}/2 tests passed.`);
+    // Test 3: Verify Expense Savings (putting money into savings) vs Income Savings (withdrawing money from savings)
+    (() => {
+        const isSavingsCat = (cat) => typeof cat === 'string' && cat.trim().toLowerCase() === 'savings';
+
+        const transactions = [
+            { type: 'expense', category: 'savings ', amount: 5000 }, // Added 5000 to savings
+            { type: 'income', category: 'Savings', amount: 1000 },   // Withdrew 1000 from savings
+        ];
+
+        const savingsExpenses = transactions
+            .filter(t => t.type === 'expense' && isSavingsCat(t.category))
+            .reduce((s, t) => s + t.amount, 0);
+
+        const savingsIncomes = transactions
+            .filter(t => t.type === 'income' && isSavingsCat(t.category))
+            .reduce((s, t) => s + t.amount, 0);
+
+        const savedAmount = Math.max(savingsExpenses - savingsIncomes, 0);
+
+        assert.strictEqual(savedAmount, 4000, 'Expense Savings (5000) minus Income Savings (1000) must equal 4000');
+        console.log('✅ [PASS] Expense Savings (putting in) minus Income Savings (withdrawing out) = 4,000 FCFA');
+        totalPassed++;
+    })();
+
+    console.log(`\n📊 Summary: ${totalPassed}/3 tests passed.`);
     console.log('🎉 Financial calculations verified successfully!');
 }
 

@@ -131,7 +131,7 @@ async function categorizeUserTransactions(userId) {
         const existingCategory = result.existing;
         const newCategory = result.new;
 
-        if (!existingCategory || existingCategory === 'Other') continue;
+        if (!existingCategory) continue;
 
         for (const tx of cluster.members) {
             const ops = {

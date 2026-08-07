@@ -31,23 +31,28 @@ router.get('/', async (req, res) => {
         ]);
 
         // ── Income & Expenses ────────────────────────────────────────────
-        const incomeTxns = transactions.filter(t => t.type === 'income');
-        const totalIncome = incomeTxns.reduce((s, t) => s + t.amount, 0);
+        const isSavingsCat = (cat) => typeof cat === 'string' && cat.trim().toLowerCase() === 'savings';
 
-        const expenseTxns = transactions.filter(t => t.type === 'expense');
-        const totalExpenses = expenseTxns.reduce((s, t) => s + t.amount, 0);
-
-        const savingsExpense = expenseTxns
-            .filter(t => t.category === 'Savings')
+        const totalIncome = transactions
+            .filter(t => t.type === 'income')
             .reduce((s, t) => s + t.amount, 0);
 
-        const savingsIncome = incomeTxns
-            .filter(t => t.category === 'Savings')
+        const totalExpenses = transactions
+            .filter(t => t.type === 'expense')
             .reduce((s, t) => s + t.amount, 0);
 
-        const savedAmount = savingsExpense - savingsIncome;
-        const regularIncome = Math.max(totalIncome - savingsIncome, 0);
-        const regularExpenses = Math.max(totalExpenses - savingsExpense, 0);
+        const savingsExpenses = transactions
+            .filter(t => t.type === 'expense' && isSavingsCat(t.category))
+            .reduce((s, t) => s + t.amount, 0);
+
+        const savingsIncomes = transactions
+            .filter(t => t.type === 'income' && isSavingsCat(t.category))
+            .reduce((s, t) => s + t.amount, 0);
+
+        const savedAmount = Math.max(savingsExpenses - savingsIncomes, 0);
+
+        const regularIncome = Math.max(totalIncome - savingsIncomes, 0);
+        const regularExpenses = Math.max(totalExpenses - savingsExpenses, 0);
 
         // ── Allocation buckets (planned vs actual) ───────────────────────
         const needsPct = plan?.needsPct ?? 50;

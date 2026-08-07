@@ -512,9 +512,7 @@ router.get('/suggestions', async (req, res) => {
     try {
         const suggestions = await Transaction.find({
             userId: req.user.id,
-            suggestedCategory: { $exists: true, $ne: null },
-            // Exclude suggestions that match the current category (no-op suggestions)
-            $expr: { $ne: ['$suggestedCategory', '$category'] }
+            suggestedCategory: { $exists: true, $ne: null }
         })
             .select('_id type amount note category suggestedCategory suggestedNewCategory date')
             .sort({ date: -1 });
