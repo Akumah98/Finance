@@ -42,6 +42,7 @@ const colors = {
 interface Bucket {
   allocated: number;
   spent: number;
+  saved?: number;
   left: number;
   overspent: boolean;
 }
@@ -311,14 +312,14 @@ export default function MoneyPlanScreen() {
                       </View>
                       <View style={styles.amountDivider} />
                       <View style={styles.amountCol}>
-                        <Text style={styles.amountMeta}>Spent</Text>
-                        <Text style={[styles.amountValue, { color: bucket.overspent ? colors.danger : colors.textSecondary }]}>
-                          {formatAmount(bucket.spent)}
+                        <Text style={styles.amountMeta}>{cfg.key === 'future' ? 'Saved' : 'Spent'}</Text>
+                        <Text style={[styles.amountValue, { color: bucket.overspent ? colors.danger : (cfg.key === 'future' ? colors.success : colors.textSecondary) }]}>
+                          {formatAmount(bucket.saved ?? bucket.spent)}
                         </Text>
                       </View>
                       <View style={styles.amountDivider} />
                       <View style={styles.amountCol}>
-                        <Text style={styles.amountMeta}>Left</Text>
+                        <Text style={styles.amountMeta}>{cfg.key === 'future' ? 'Remaining' : 'Left'}</Text>
                         <Text style={[styles.amountValue, { color: bucket.left >= 0 ? colors.success : colors.danger }]}>
                           {bucket.left >= 0 ? formatAmount(bucket.left) : `-${formatAmount(Math.abs(bucket.left))}`}
                         </Text>
@@ -340,6 +341,8 @@ export default function MoneyPlanScreen() {
                     <Text style={[styles.barLabel, { color: barColor }]}>
                       {noIncome
                         ? "Log income to see progress"
+                        : cfg.key === 'future'
+                        ? (progressPct >= 100 ? "Savings target reached!" : `${Math.round(progressPct)}% saved toward target`)
                         : bucket.overspent
                         ? `${formatAmount(Math.abs(bucket.left))} over budget`
                         : progressPct >= 85

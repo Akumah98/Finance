@@ -65,9 +65,7 @@ router.get('/', async (req, res) => {
             .filter(t => wantsCategories.includes(t.category))
             .reduce((s, t) => s + t.amount, 0);
 
-        const futureActual = expenseTxns
-            .filter(t => !needsCategories.includes(t.category) && !wantsCategories.includes(t.category))
-            .reduce((s, t) => s + t.amount, 0);
+        const futureActual = Math.max(savedAmount, 0);
 
         const needsPlanned = (needsPct / 100) * totalIncome;
         const wantsPlanned = (wantsPct / 100) * totalIncome;

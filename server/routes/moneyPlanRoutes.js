@@ -37,7 +37,7 @@ router.get('/', async (req, res) => {
         const wantsAllocated = (plan.wantsPct / 100) * regularIncome;
         const futureAllocated = (plan.futurePct / 100) * regularIncome;
 
-        // Actual spending per bucket
+        // Actual spending / saving per bucket
         const expenses = transactions.filter(t => t.type === 'expense');
 
         const needsSpent = expenses
@@ -48,10 +48,14 @@ router.get('/', async (req, res) => {
             .filter(t => plan.wantsCategories.includes(t.category))
             .reduce((sum, t) => sum + t.amount, 0);
 
-        // Future = everything not explicitly in needs or wants
-        const futureSpent = expenses
-            .filter(t => !plan.needsCategories.includes(t.category) && !plan.wantsCategories.includes(t.category))
+        // Future = Net Savings (transactions categorized under 'Savings')
+        const savingsExpenses = expenses
+            .filter(t => t.category === 'Savings')
             .reduce((sum, t) => sum + t.amount, 0);
+        const savingsIncomes = transactions
+            .filter(t => t.type === 'income' && t.category === 'Savings')
+            .reduce((sum, t) => sum + t.amount, 0);
+        const futureSaved = Math.max(savingsExpenses - savingsIncomes, 0);
 
         res.json({
             plan: {
@@ -78,9 +82,10 @@ router.get('/', async (req, res) => {
                     },
                     future: {
                         allocated: futureAllocated,
-                        spent: futureSpent,
-                        left: futureAllocated - futureSpent,
-                        overspent: futureSpent > futureAllocated
+                        saved: futureSaved,
+                        spent: futureSaved, // backward compatibility alias
+                        left: Math.max(futureAllocated - futureSaved, 0),
+                        targetMet: futureSaved >= futureAllocated
                     }
                 }
             }
