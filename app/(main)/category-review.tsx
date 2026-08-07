@@ -267,9 +267,9 @@ export default function CategoryReviewScreen() {
                         <Text style={styles.emptySubtitle}>
                             No category suggestions right now. Tap below to run an instant AI scan on your transactions.
                         </Text>
-                        <TouchableOpacity style={[styles.acceptAllBtn, { marginTop: 20, paddingHorizontal: 24, borderRadius: 12 }]} onPress={handleScanNow}>
-                            <Ionicons name="sparkles" size={18} color="white" />
-                            <Text style={styles.acceptAllText}>Run AI Scan Now</Text>
+                        <TouchableOpacity style={styles.scanNowBtn} onPress={handleScanNow}>
+                            <Ionicons name="sparkles" size={16} color="white" />
+                            <Text style={styles.scanNowText}>Run AI Scan Now</Text>
                         </TouchableOpacity>
                     </View>
                 ) : (
@@ -362,4 +362,17 @@ const styles = StyleSheet.create({
     emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40, gap: 12 },
     emptyTitle: { color: colors.text, fontSize: 20, fontWeight: '700' },
     emptySubtitle: { color: colors.textMuted, fontSize: 14, textAlign: 'center', lineHeight: 22 },
+
+    scanNowBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        backgroundColor: colors.primary,
+        paddingVertical: 12,
+        paddingHorizontal: 24,
+        borderRadius: 12,
+        marginTop: 20,
+    },
+    scanNowText: { color: 'white', fontSize: 15, fontWeight: '700' },
 });

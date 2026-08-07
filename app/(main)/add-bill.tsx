@@ -49,18 +49,21 @@ export default function AddBillScreen() {
     useEffect(() => {
         const fetchCategories = async () => {
             try {
-                const categoriesCacheKey = `categories_${user?.id || user?._id || 'guest'}`;
+                const categoriesCacheKey = `categories_${user?._id || user?.id || 'guest'}`;
                 const cached = await localCache.get<any[]>(categoriesCacheKey);
-                if (cached) {
-                    setCategories(cached);
-                    if (initialCategory) {
-                        const cat = cached.find((c: any) => c.name === initialCategory && c.type === 'expense');
-                        if (cat) setSelectedCategory(cat._id || cat.id);
+                if (cached && Array.isArray(cached) && cached.length > 0) {
+                    const hasSavings = cached.some(c => c.name === 'Savings');
+                    if (hasSavings) {
+                        setCategories(cached);
+                        if (initialCategory) {
+                            const cat = cached.find((c: any) => c.name === initialCategory && c.type === 'expense');
+                            if (cat) setSelectedCategory(cat._id || cat.id);
+                        }
                     }
                 }
 
                 const { data } = await api.get('/categories');
-                if (data) {
+                if (data && Array.isArray(data) && data.length > 0) {
                     setCategories(data);
                     await localCache.set(categoriesCacheKey, data);
                     if (initialCategory && !cached) {

@@ -98,7 +98,6 @@ async function categorizeUserTransactions(userId) {
 
     const transactions = await Transaction.find({
         userId,
-        category: 'Other',
         embedding: { $exists: true, $ne: [] },
         categorizationAttempted: { $ne: true }
     }).sort({ date: -1 }).limit(200).lean();
@@ -178,7 +177,6 @@ async function categorizeUserTransactions(userId) {
 async function runCategorizationJob() {
     try {
         const userIds = await Transaction.distinct('userId', {
-            category: 'Other',
             embedding: { $exists: true, $ne: [] },
             categorizationAttempted: { $ne: true }
         });

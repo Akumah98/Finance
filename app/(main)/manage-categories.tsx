@@ -1,43 +1,35 @@
 import { colors } from "@/constants/colors";
 import { useAuth } from "@/context/AuthContext";
+import { useCachedData } from "@/hooks/useCachedData";
 import { api } from "@/lib/api";
-import { localCache } from "@/lib/localCache";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 export default function ManageCategoriesScreen() {
     const router = useRouter();
     const { user } = useAuth();
-    const [categories, setCategories] = useState<any[]>([]);
 
     const [modalVisible, setModalVisible] = useState(false);
     const [newCategoryName, setNewCategoryName] = useState('');
     const [newCategoryType, setNewCategoryType] = useState<'expense' | 'income'>('expense');
 
-    const categoriesCacheKey = `categories_${user?._id || user?.id || 'guest'}`;
+    const categoriesCacheKey = user ? `categories_${user._id || user.id}` : null;
 
-    const fetchCategories = async () => {
-        try {
-            const cached = await localCache.get<any[]>(categoriesCacheKey);
-            if (cached) setCategories(cached);
-
+    const { data: fetchedCategories = [] } = useCachedData<any[]>(
+        categoriesCacheKey,
+        async () => {
             const { data, error } = await api.get('/categories');
-            if (!error && data) {
-                setCategories(data);
-                await localCache.set(categoriesCacheKey, data);
-            }
-        } catch (error) {
-            console.log('Failed to fetch categories');
-        }
-    };
+            if (!error && Array.isArray(data) && data.length > 0) return data;
+            return null;
+        },
+        { enabled: !!user }
+    );
 
-    useEffect(() => {
-        if (user) fetchCategories();
-    }, [user]);
+    const categories = fetchedCategories || [];
 
     const handleAddCategory = async () => {
         if (!newCategoryName.trim()) return;
@@ -53,7 +45,6 @@ export default function ManageCategoriesScreen() {
             if (!error) {
                 setNewCategoryName('');
                 setModalVisible(false);
-                fetchCategories();
             } else {
                 Alert.alert('Error', 'Failed to add category');
             }
@@ -71,7 +62,6 @@ export default function ManageCategoriesScreen() {
                 onPress: async () => {
                     try {
                         await api.delete(`/categories/${id}`);
-                        fetchCategories();
                     } catch (error) {
                         Alert.alert('Error', 'Failed to delete category');
                     }

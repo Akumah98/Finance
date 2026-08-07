@@ -83,14 +83,15 @@ router.post('/', async (req, res) => {
             const updates = {};
             if (embedding) updates.embedding = embedding;
 
-            if (savedTransaction.category === 'Other' || !savedTransaction.suggestedCategory) {
+            if (!savedTransaction.suggestedCategory) {
                 const suggestion = await suggestCategoryHelper(
                     savedTransaction.userId,
                     savedTransaction.note,
                     null,
                     savedTransaction.type
                 );
-                if (suggestion?.category && suggestion.category !== savedTransaction.category) {
+                // Always save suggestion — user can review and reject if same
+                if (suggestion?.category && suggestion.category !== 'Other') {
                     updates.suggestedCategory = suggestion.category;
                 }
             }
@@ -511,7 +512,9 @@ router.get('/suggestions', async (req, res) => {
     try {
         const suggestions = await Transaction.find({
             userId: req.user.id,
-            suggestedCategory: { $ne: null }
+            suggestedCategory: { $exists: true, $ne: null },
+            // Exclude suggestions that match the current category (no-op suggestions)
+            $expr: { $ne: ['$suggestedCategory', '$category'] }
         })
             .select('_id type amount note category suggestedCategory suggestedNewCategory date')
             .sort({ date: -1 });

@@ -25,6 +25,23 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 
 
+const DEFAULT_CATEGORIES = [
+    { _id: 'def_savings_exp', id: 'def_savings_exp', name: 'Savings', icon: 'piggy-bank', type: 'expense', color: '#10B981' },
+    { _id: 'def_food', id: 'def_food', name: 'Food', icon: 'food', type: 'expense', color: '#EF4444' },
+    { _id: 'def_transport', id: 'def_transport', name: 'Transport', icon: 'bus', type: 'expense', color: '#F59E0B' },
+    { _id: 'def_shopping', id: 'def_shopping', name: 'Shopping', icon: 'shopping', type: 'expense', color: '#EC4899' },
+    { _id: 'def_health', id: 'def_health', name: 'Health', icon: 'medical-bag', type: 'expense', color: '#10B981' },
+    { _id: 'def_bills', id: 'def_bills', name: 'Bills', icon: 'file-document', type: 'expense', color: '#6366F1' },
+    { _id: 'def_entertainment', id: 'def_entertainment', name: 'Entertainment', icon: 'movie', type: 'expense', color: '#8B5CF6' },
+    { _id: 'def_education', id: 'def_education', name: 'Education', icon: 'school', type: 'expense', color: '#3B82F6' },
+    { _id: 'def_other_exp', id: 'def_other_exp', name: 'Other', icon: 'dots-horizontal', type: 'expense', color: '#6B7280' },
+    { _id: 'def_savings_inc', id: 'def_savings_inc', name: 'Savings', icon: 'piggy-bank', type: 'income', color: '#3B82F6' },
+    { _id: 'def_salary', id: 'def_salary', name: 'Salary', icon: 'cash', type: 'income', color: '#10B981' },
+    { _id: 'def_freelance', id: 'def_freelance', name: 'Freelance', icon: 'laptop', type: 'income', color: '#3B82F6' },
+    { _id: 'def_gift', id: 'def_gift', name: 'Gift', icon: 'gift', type: 'income', color: '#EC4899' },
+    { _id: 'def_other_inc', id: 'def_other_inc', name: 'Other', icon: 'dots-horizontal', type: 'income', color: '#6B7280' }
+];
+
 export default function AddTransactionScreen() {
     const router = useRouter();
     const { id, initialType, initialAmount, initialCategory, initialDate, initialNote, deleteGoalId } = useLocalSearchParams();
@@ -35,14 +52,13 @@ export default function AddTransactionScreen() {
     const [amount, setAmount] = useState(initialAmount ? formatInputAmount(initialAmount as string) : '');
     const [note, setNote] = useState((initialNote as string) || '');
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-    // category will be set after fetching categories to match the name
 
     const [date, setDate] = useState(initialDate ? new Date(initialDate as string) : new Date());
     const [showDatePicker, setShowDatePicker] = useState(false);
     const { user, token } = useAuth();
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const [categories, setCategories] = useState<any[]>([]);
+    const [categories, setCategories] = useState<any[]>(DEFAULT_CATEGORIES);
     const [suggestedCategory, setSuggestedCategory] = useState<string | null>(null);
 
     // Voice Input State
@@ -52,14 +68,12 @@ export default function AddTransactionScreen() {
     const [mode, setMode] = useState<'single' | 'bulk'>('single');
     const [batchTransactions, setBatchTransactions] = useState<any[]>([]);
 
-    // Force single mode when editing
     useEffect(() => {
         if (isEditing) {
             setMode('single');
         }
     }, [isEditing]);
 
-    // Sync state with params when they change (e.g. navigating from "Edit")
     useEffect(() => {
         if (initialType) setType(initialType as 'expense' | 'income');
         if (initialAmount) setAmount(formatInputAmount(initialAmount as string));
@@ -70,12 +84,15 @@ export default function AddTransactionScreen() {
     useEffect(() => {
         const fetchCategories = async () => {
             try {
-                const categoriesCacheKey = `categories_${user?.id || user?._id || 'guest'}`;
+                const categoriesCacheKey = `categories_${user?._id || user?.id || 'guest'}`;
                 const cached = await localCache.get<any[]>(categoriesCacheKey);
-                if (cached) setCategories(cached);
+                if (cached && Array.isArray(cached) && cached.length > 0) {
+                    const hasSavings = cached.some(c => c.name === 'Savings');
+                    if (hasSavings) setCategories(cached);
+                }
 
                 const { data } = await api.get('/categories');
-                if (data) {
+                if (data && Array.isArray(data) && data.length > 0) {
                     setCategories(data);
                     await localCache.set(categoriesCacheKey, data);
                 }
