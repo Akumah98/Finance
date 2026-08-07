@@ -115,7 +115,18 @@ const getUserContext = async (userId) => {
         .filter(t => t.type === 'expense')
         .reduce((s, t) => s + t.amount, 0);
 
-    const savingsRate = income > 0 ? ((income - expenses) / income) * 100 : 0;
+    const savingsExpense = transactions
+        .filter(t => t.type === 'expense' && t.category === 'Savings')
+        .reduce((s, t) => s + t.amount, 0);
+
+    const savingsIncome = transactions
+        .filter(t => t.type === 'income' && t.category === 'Savings')
+        .reduce((s, t) => s + t.amount, 0);
+
+    const savedAmount = savingsExpense - savingsIncome;
+    const regularIncome = Math.max(income - savingsIncome, 0);
+
+    const savingsRate = regularIncome > 0 ? (Math.max(savedAmount, 0) / regularIncome) * 100 : 0;
 
     const categoryMap = {};
     transactions.filter(t => t.type === 'expense').forEach(t => {

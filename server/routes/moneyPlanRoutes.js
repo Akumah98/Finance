@@ -28,14 +28,14 @@ router.get('/', async (req, res) => {
             date: { $gte: startOfMonth, $lte: endOfMonth }
         });
 
-        const totalIncome = transactions
-            .filter(t => t.type === 'income')
+        const regularIncome = transactions
+            .filter(t => t.type === 'income' && t.category !== 'Savings')
             .reduce((sum, t) => sum + t.amount, 0);
 
-        // Allocated amounts based on real income
-        const needsAllocated = (plan.needsPct / 100) * totalIncome;
-        const wantsAllocated = (plan.wantsPct / 100) * totalIncome;
-        const futureAllocated = (plan.futurePct / 100) * totalIncome;
+        // Allocated amounts based on real regular income
+        const needsAllocated = (plan.needsPct / 100) * regularIncome;
+        const wantsAllocated = (plan.wantsPct / 100) * regularIncome;
+        const futureAllocated = (plan.futurePct / 100) * regularIncome;
 
         // Actual spending per bucket
         const expenses = transactions.filter(t => t.type === 'expense');
@@ -62,7 +62,7 @@ router.get('/', async (req, res) => {
                 wantsCategories: plan.wantsCategories,
             },
             month: {
-                totalIncome,
+                totalIncome: regularIncome,
                 buckets: {
                     needs: {
                         allocated: needsAllocated,

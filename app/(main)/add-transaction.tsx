@@ -95,6 +95,45 @@ export default function AddTransactionScreen() {
         }
     }, [categories, initialCategory, initialType]);
 
+    // Adjust selected category when type toggles between expense and income
+    useEffect(() => {
+        if (selectedCategory && categories.length > 0) {
+            const currentCat = categories.find(c => (c._id || c.id) === selectedCategory);
+            if (currentCat && currentCat.type !== type) {
+                const matchNewType = categories.find(c => c.name === currentCat.name && c.type === type);
+                if (matchNewType) {
+                    setSelectedCategory(matchNewType._id || matchNewType.id);
+                } else {
+                    setSelectedCategory(null);
+                }
+            }
+        }
+    }, [type, categories]);
+
+    // Real-time debounced AI Category Suggestion as user types note
+    useEffect(() => {
+        if (isEditing || !note || note.trim().length < 3 || categories.length === 0) {
+            return;
+        }
+
+        const timer = setTimeout(async () => {
+            try {
+                const { data } = await api.post('/transactions/suggest-category', { note: note.trim(), type });
+                if (data?.category) {
+                    const cat = categories.find(c => c.name.toLowerCase() === data.category.toLowerCase() && c.type === type);
+                    if (cat) {
+                        setSuggestedCategory(cat.name);
+                        if (!selectedCategory) {
+                            setSelectedCategory(cat._id || cat.id);
+                        }
+                    }
+                }
+            } catch {}
+        }, 350);
+
+        return () => clearTimeout(timer);
+    }, [note, type, categories, isEditing]);
+
     const handleVoiceInput = () => {
         if (Platform.OS === 'ios') {
             Alert.prompt(
@@ -540,20 +579,7 @@ export default function AddTransactionScreen() {
                                     style={styles.textInput}
                                     value={note}
                                     onChangeText={setNote}
-                                    onBlur={async () => {
-                                        if (note.length >= 3 && !selectedCategory && !isEditing) {
-                                            try {
-                                                const { data } = await api.post('/transactions/suggest-category', { note });
-                                                if (data?.category) {
-                                                    const cat = categories.find(c => c.name === data.category && c.type === type);
-                                                    if (cat) {
-                                                        setSuggestedCategory(data.category);
-                                                        setSelectedCategory(cat._id || cat.id);
-                                                    }
-                                                }
-                                            } catch {}
-                                        }
-                                    }}
+                                    onBlur={() => {}}
                                 />
                                 <TouchableOpacity
                                     onPress={handleVoiceInput}
@@ -567,10 +593,13 @@ export default function AddTransactionScreen() {
                                     )}
                                 </TouchableOpacity>
                             </View>
-                            {suggestedCategory && selectedCategory && (
-                                <Text style={{ color: colors.accent, fontSize: 12, marginLeft: 28, marginTop: 4 }}>
-                                    Auto-suggested: {suggestedCategory}
-                                </Text>
+                            {suggestedCategory && (
+                                <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 16, marginTop: 6, gap: 4 }}>
+                                    <Ionicons name="sparkles" size={14} color="#8B5CF6" />
+                                    <Text style={{ color: "#8B5CF6", fontSize: 12, fontWeight: '600' }}>
+                                        Auto-suggested: {suggestedCategory}
+                                    </Text>
+                                </View>
                             )}
                         </View>
 

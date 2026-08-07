@@ -4,6 +4,7 @@ const Transaction = require('../models/Transaction');
 const Category = require('../models/Category');
 const { protect } = require('../middleware/authMiddleware');
 const { generateEmbedding, generateEmbeddings, buildTransactionText } = require('../services/embeddingService');
+const { generateWithFallback } = require('../services/aiProvider');
 const insightsCache = require('../services/insightsCache');
 const { categorizeUserTransactions } = require('../services/categorizationJob');
 
@@ -76,11 +77,26 @@ router.post('/', async (req, res) => {
         insightsCache.invalidate(req.user.id);
         res.status(201).json(savedTransaction);
 
-        // Fire-and-forget embedding generation
+        // Fire-and-forget embedding & AI category suggestion for review screen
         const text = buildTransactionText(savedTransaction);
-        generateEmbedding(text).then(embedding => {
-            if (embedding) {
-                Transaction.findByIdAndUpdate(savedTransaction._id, { embedding }).catch(() => {});
+        generateEmbedding(text).then(async (embedding) => {
+            const updates = {};
+            if (embedding) updates.embedding = embedding;
+
+            if (savedTransaction.category === 'Other' || !savedTransaction.suggestedCategory) {
+                const suggestion = await suggestCategoryHelper(
+                    savedTransaction.userId,
+                    savedTransaction.note,
+                    null,
+                    savedTransaction.type
+                );
+                if (suggestion?.category && suggestion.category !== savedTransaction.category) {
+                    updates.suggestedCategory = suggestion.category;
+                }
+            }
+
+            if (Object.keys(updates).length > 0) {
+                await Transaction.findByIdAndUpdate(savedTransaction._id, updates).catch(() => {});
             }
         });
     } catch (err) {
@@ -245,52 +261,115 @@ router.post('/search', async (req, res) => {
     }
 });
 
-// Auto-categorize a transaction based on semantic similarity
+async function suggestCategoryHelper(userId, note, merchant, type = 'expense') {
+    const text = [note, merchant].filter(Boolean).join(' ');
+    if (!text || !text.trim()) return null;
+
+    const userCategories = await Category.find({ userId });
+    const matchingCategories = userCategories.filter(c => c.type === type);
+    const categoryNames = matchingCategories.length > 0
+        ? matchingCategories.map(c => c.name)
+        : (type === 'income' ? ['Salary', 'Freelance', 'Gift', 'Savings', 'Other'] : ['Food', 'Transport', 'Shopping', 'Health', 'Bills', 'Entertainment', 'Education', 'Savings', 'Other']);
+
+    // Tier 0: Exact Past Note Match (0 Tokens, 0 AI Calls)
+    try {
+        const exactMatch = await Transaction.findOne({
+            userId,
+            type,
+            note: { $regex: new RegExp(`^${text.trim()}$`, 'i') }
+        }).sort({ date: -1 }).lean();
+
+        if (exactMatch && categoryNames.includes(exactMatch.category)) {
+            return {
+                category: exactMatch.category,
+                confidence: 0.98,
+                method: 'exact_history'
+            };
+        }
+    } catch (e) {
+        console.error('Exact history match failed:', e.message);
+    }
+
+    // Tier 1: Vector Embedding Cosine Similarity match
+    try {
+        const queryEmbedding = await generateEmbedding(text);
+        if (queryEmbedding) {
+            const pastTxns = await Transaction.find({
+                userId,
+                type,
+                embedding: { $exists: true, $ne: [] }
+            }).sort({ date: -1 }).limit(100).lean();
+
+            if (pastTxns.length > 0) {
+                const scored = pastTxns
+                    .map(t => ({ category: t.category, score: cosineSimilarity(queryEmbedding, t.embedding) }))
+                    .sort((a, b) => b.score - a.score)
+                    .filter(item => categoryNames.includes(item.category));
+
+                if (scored.length > 0 && scored[0].score >= 0.55) {
+                    return {
+                        category: scored[0].category,
+                        confidence: parseFloat(scored[0].score.toFixed(2)),
+                        method: 'vector'
+                    };
+                }
+            }
+        }
+    } catch (e) {
+        console.error('Vector similarity suggestion failed:', e.message);
+    }
+
+    // Tier 2: AI Zero-Shot Classification Fallback
+    try {
+        const prompt = `You are a financial transaction categorizer.
+Task: Pick the single best fitting category for the transaction below.
+
+TRANSACTION NOTE: "${text}"
+TRANSACTION TYPE: "${type}"
+AVAILABLE CATEGORIES: ${categoryNames.join(', ')}
+
+Respond ONLY with a JSON object: {"category": "CategoryName"} and no markdown or extra text.`;
+
+        const { text: responseText } = await generateWithFallback(prompt);
+        let cleaned = responseText.trim();
+        if (cleaned.startsWith('```')) {
+            cleaned = cleaned.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+        }
+        const parsed = JSON.parse(cleaned);
+        if (parsed?.category && categoryNames.includes(parsed.category)) {
+            return {
+                category: parsed.category,
+                confidence: 0.85,
+                method: 'ai'
+            };
+        }
+    } catch (e) {
+        console.error('AI zero-shot suggestion failed:', e.message);
+    }
+
+    // Tier 3: Safe Fallback
+    const fallbackCategory = categoryNames.includes('Other') ? 'Other' : categoryNames[0];
+    return {
+        category: fallbackCategory,
+        confidence: 0.50,
+        method: 'fallback'
+    };
+}
+
+// Auto-categorize a transaction based on semantic similarity + AI fallback
 router.post('/suggest-category', async (req, res) => {
-    const { note, merchant } = req.body;
+    const { note, merchant, type } = req.body;
 
     if (!note && !merchant) {
         return res.status(400).json({ message: 'note or merchant is required' });
     }
 
     try {
-        const text = [note, merchant].filter(Boolean).join(' ');
-        const queryEmbedding = await generateEmbedding(text);
-
-        if (!queryEmbedding) {
-            return res.json({ category: null });
-        }
-
-        // Find similar past transactions
-        const transactions = await Transaction.find({
-            userId: req.user.id,
-            embedding: { $exists: true, $ne: [] }
-        }).sort({ date: -1 }).limit(100).lean();
-
-        if (transactions.length === 0) {
-            return res.json({ category: null });
-        }
-
-        const scored = transactions
-            .map(t => ({ category: t.category, score: cosineSimilarity(queryEmbedding, t.embedding) }))
-            .sort((a, b) => b.score - a.score)
-            .slice(0, 5);
-
-        // Vote: most common category among top 5 similar transactions
-        const categoryCount = {};
-        for (const { category, score } of scored) {
-            if (score > 0.6) {
-                categoryCount[category] = (categoryCount[category] || 0) + 1;
-            }
-        }
-
-        const topCategory = Object.entries(categoryCount)
-            .sort(([, a], [, b]) => b - a)[0];
-
+        const result = await suggestCategoryHelper(req.user.id, note, merchant, type || 'expense');
         res.json({
-            category: topCategory ? topCategory[0] : null,
-            confidence: topCategory ? scored[0].score : 0,
-            alternatives: scored.slice(0, 3).map(s => s.category)
+            category: result ? result.category : null,
+            confidence: result ? result.confidence : 0,
+            method: result ? result.method : 'none'
         });
     } catch (err) {
         res.status(500).json({ message: err.message });

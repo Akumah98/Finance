@@ -70,7 +70,18 @@ router.get('/', async (req, res) => {
             .filter(t => t.type === 'expense')
             .reduce((s, t) => s + t.amount, 0);
 
-        const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome) * 100 : 0;
+        const savingsExpense = thisMonthTransactions
+            .filter(t => t.type === 'expense' && t.category === 'Savings')
+            .reduce((s, t) => s + t.amount, 0);
+
+        const savingsIncome = thisMonthTransactions
+            .filter(t => t.type === 'income' && t.category === 'Savings')
+            .reduce((s, t) => s + t.amount, 0);
+
+        const savedAmount = savingsExpense - savingsIncome;
+        const regularIncome = Math.max(totalIncome - savingsIncome, 0);
+
+        const savingsRate = regularIncome > 0 ? (Math.max(savedAmount, 0) / regularIncome) * 100 : 0;
 
         // Generate rule-based insights as fallback
         const ruleBasedInsights = analyzeSpending(transactions, budgets);

@@ -246,9 +246,9 @@ export default function MonthlyReviewScreen() {
                   <View style={styles.summaryDivider} />
                   <View style={styles.summaryCol}>
                     <Text style={styles.summaryMeta}>Saved</Text>
-                    <Text style={[styles.summaryVal, { color: data!.summary.netBalance >= 0 ? colors.success : colors.danger }]}>
-                      {data!.summary.netBalance >= 0 ? "+" : "-"}
-                      {formatAmount(Math.abs(data!.summary.netBalance))}
+                    <Text style={[styles.summaryVal, { color: data!.summary.savedAmount >= 0 ? colors.success : colors.danger }]}>
+                      {data!.summary.savedAmount >= 0 ? "+" : "-"}
+                      {formatAmount(Math.abs(data!.summary.savedAmount))}
                     </Text>
                   </View>
                 </View>

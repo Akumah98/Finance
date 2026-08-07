@@ -31,12 +31,23 @@ router.get('/', async (req, res) => {
         ]);
 
         // ── Income & Expenses ────────────────────────────────────────────
-        const totalIncome = transactions
-            .filter(t => t.type === 'income')
-            .reduce((s, t) => s + t.amount, 0);
+        const incomeTxns = transactions.filter(t => t.type === 'income');
+        const totalIncome = incomeTxns.reduce((s, t) => s + t.amount, 0);
 
         const expenseTxns = transactions.filter(t => t.type === 'expense');
         const totalExpenses = expenseTxns.reduce((s, t) => s + t.amount, 0);
+
+        const savingsExpense = expenseTxns
+            .filter(t => t.category === 'Savings')
+            .reduce((s, t) => s + t.amount, 0);
+
+        const savingsIncome = incomeTxns
+            .filter(t => t.category === 'Savings')
+            .reduce((s, t) => s + t.amount, 0);
+
+        const savedAmount = savingsExpense - savingsIncome;
+        const regularIncome = Math.max(totalIncome - savingsIncome, 0);
+        const regularExpenses = Math.max(totalExpenses - savingsExpense, 0);
 
         // ── Allocation buckets (planned vs actual) ───────────────────────
         const needsPct = plan?.needsPct ?? 50;
@@ -90,8 +101,7 @@ router.get('/', async (req, res) => {
         };
 
         // ── Savings rate ────────────────────────────────────────────────
-        const savedAmount = Math.max(totalIncome - totalExpenses, 0);
-        const savingsRate = totalIncome > 0 ? (savedAmount / totalIncome) * 100 : 0;
+        const savingsRate = regularIncome > 0 ? (Math.max(savedAmount, 0) / regularIncome) * 100 : 0;
 
         // ── Category breakdown ──────────────────────────────────────────
         const categoryMap = {};

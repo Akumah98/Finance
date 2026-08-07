@@ -215,6 +215,21 @@ export default function CategoryReviewScreen() {
         );
     }, [processing, formatAmount]);
 
+    const handleScanNow = async () => {
+        setLoading(true);
+        try {
+            const { data } = await api.post('/transactions/batch-categorize');
+            if (data) {
+                Alert.alert('AI Scan Complete', data.message || 'Scanned transactions for suggestions.');
+                await fetchSuggestions();
+            }
+        } catch {
+            Alert.alert('Error', 'Failed to run AI category scan');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     if (loading) {
         return (
             <SafeAreaProvider>
@@ -250,8 +265,12 @@ export default function CategoryReviewScreen() {
                         <Ionicons name="checkmark-circle-outline" size={64} color={colors.textMuted} />
                         <Text style={styles.emptyTitle}>All caught up!</Text>
                         <Text style={styles.emptySubtitle}>
-                            No category suggestions right now. AI checks your transactions every few hours.
+                            No category suggestions right now. Tap below to run an instant AI scan on your transactions.
                         </Text>
+                        <TouchableOpacity style={[styles.acceptAllBtn, { marginTop: 20, paddingHorizontal: 24, borderRadius: 12 }]} onPress={handleScanNow}>
+                            <Ionicons name="sparkles" size={18} color="white" />
+                            <Text style={styles.acceptAllText}>Run AI Scan Now</Text>
+                        </TouchableOpacity>
                     </View>
                 ) : (
                     <>

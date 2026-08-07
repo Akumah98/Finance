@@ -15,8 +15,6 @@ async function calculateHealthScore(userId) {
         SavingsGoal.find({ userId }),
     ]);
 
-    const thisMonthTxns = transactions;
-
     const monthlyIncome = thisMonthTxns
         .filter(t => t.type === 'income')
         .reduce((s, t) => s + t.amount, 0);
@@ -24,6 +22,17 @@ async function calculateHealthScore(userId) {
     const monthlyExpenses = thisMonthTxns
         .filter(t => t.type === 'expense')
         .reduce((s, t) => s + t.amount, 0);
+
+    const savingsExpense = thisMonthTxns
+        .filter(t => t.type === 'expense' && t.category === 'Savings')
+        .reduce((s, t) => s + t.amount, 0);
+
+    const savingsIncome = thisMonthTxns
+        .filter(t => t.type === 'income' && t.category === 'Savings')
+        .reduce((s, t) => s + t.amount, 0);
+
+    const savedAmount = savingsExpense - savingsIncome;
+    const regularIncome = Math.max(monthlyIncome - savingsIncome, 0);
 
     // Signal 1: Emergency Fund (25 pts)
     let emergencyScore = 0;
@@ -46,9 +55,9 @@ async function calculateHealthScore(userId) {
     let savingsScore = 0;
     let savingsDetails = { label: 'Savings rate', rate: 0, targetRate: 20 };
 
-    if (monthlyIncome > 0) {
-        const saved = Math.max(monthlyIncome - monthlyExpenses, 0);
-        const rate = (saved / monthlyIncome) * 100;
+    if (regularIncome > 0) {
+        const saved = Math.max(savedAmount, 0);
+        const rate = (saved / regularIncome) * 100;
         savingsScore = Math.round(Math.min(rate / 20, 1) * 25);
         savingsDetails = {
             label: 'Savings rate',
